@@ -1,0 +1,17 @@
+syntax = "proto3";
+option cc_generic_services = true;
+
+message QueryReq {
+    int32 req_no = 1;
+    int32 id = 2;
+}
+
+message QueryRsp{
+    int32 errorCode = 1;
+    string msg = 2;
+}
+
+service QueryService{
+    rpc QueryName(QueryReq) returns (QueryRsp);
+}
+
