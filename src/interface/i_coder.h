@@ -19,19 +19,19 @@ namespace jl
         /// @return
         virtual std::string EncodeRequest(const RequestPtr &request) = 0;
 
-        /// @brief 解码请求。成功返回IRequest，失败返回std::nullopt_t
+        /// @brief 解码请求。成功返回IRequest，失败返回nullptr
         /// @param buffer
         /// @return
-        virtual std::optional<std::shared_ptr<IRequest>> DecodeRequest(asio::streambuf &buffer) = 0;
+        virtual RequestPtr DecodeRequest(asio::streambuf &buffer) = 0;
 
         /// @brief 编码响应。将request转换为string用于发送
         /// @param response
         /// @return
         virtual std::string EncodeResponse(const ResponsePtr &response) = 0;
 
-        /// @brief 解码响应。成功返回IResponse，失败返回std::nullopt_t
+        /// @brief 解码响应。成功返回IResponse，失败返回nullptr
         /// @param buffer
         /// @return
-        virtual std::optional<std::shared_ptr<IResponse>> DecodeResponse(asio::streambuf &buffer) = 0;
+        virtual ResponsePtr DecodeResponse(asio::streambuf &buffer) = 0;
     };
 }

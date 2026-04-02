@@ -3,6 +3,7 @@
 #include <interface/i_session.h>
 #include <net/pb/pb_coder.h>
 #include <asio/ip/tcp.hpp>
+#include <asio/steady_timer.hpp>
 #include <atomic>
 #include <queue>
 
@@ -18,14 +19,24 @@ namespace jl
         int64_t GetId() const override;
 
         /// @brief 开始读取proto格式数据
-        void StartRead() override;
+        void Read() override;
 
-        /// @brief 发送IRespnse
-        /// @param response_ptr
-        void Write(const ResponsePtr &resp_str) override;
+        /// @brief 发送response string
+        /// @param data
+        void Write(const std::string &data) override;
 
         /// @brief 关闭连接
         void Close() override;
+
+        // std::chrono::steady_clock::time_point GetTimeout() const override
+        // {
+        //     return timeout_point_;
+        // }
+
+        // void SetTimeout(const std::chrono::steady_clock::time_point& timeout_point) override
+        // {
+        //     timeout_point_ = timeout_point;
+        // }
 
         void SetReadCallback(const ReadCallback &callback) override
         {
@@ -56,15 +67,18 @@ namespace jl
 
         void OnWrite(const std::error_code &ec, size_t bytes_transferred);
 
+        void OnTimeout(const std::error_code& ec);
+
         void HandleError(const std::error_code &ec);
 
-        void OnNoReadCallback(const RequestPtr &req_ptr);
+        //void OnNoReadCallback(const RequestPtr &req_ptr);
 
     private:
         std::int64_t session_id_;
+        // std::atomic<std::chrono::steady_clock::time_point> timeout_point_;
         std::atomic<ConnectionState> state_;
         std::atomic<bool> is_reading_;
-        std::unique_ptr<ICoder> coder_;
+        //std::unique_ptr<ICoder> coder_;
         asio::streambuf read_buffer_;
         net::tcp::socket socket_;
         std::queue<std::string> write_queue_;

@@ -6,6 +6,7 @@
 
 #include <string>
 #include <optional>
+#include <memory>
 
 namespace jl
 {
@@ -21,4 +22,6 @@ namespace jl
         /// @return 成功返回true，失败返回false
         virtual bool ParseFromString(const std::string&) = 0;
     };
+
+    using SerializePtr = std::shared_ptr<ISerialize>;
 }

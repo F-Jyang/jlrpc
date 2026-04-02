@@ -17,11 +17,17 @@ namespace jl
     {
     public:
         void SetMsgId(const std::string &msg_id) override;
+        
         std::string GetMsgId() const override;
+        
         void SetServiceFullName(const std::string &service_full_name) override;
+        
         std::string GetServiceFullName() const override;
+        
         void SetParam(const std::string &param) override;
+        
         std::string GetParam() const override;
+        
         int32_t GetSize() const override;
 
         /// @brief 将被序列化为string的requst重写解序列化为request

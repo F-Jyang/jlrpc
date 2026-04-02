@@ -6,9 +6,9 @@
 
 namespace jl
 {
-    PbSession::PbSession(int64_t session_id, net::tcp::socket &&socket) : session_id_(session_id),
-                                                                          socket_(std::move(socket)),
-                                                                          coder_(new PbCoder)
+    PbSession::PbSession(int64_t session_id, net::tcp::socket&& socket) :
+        session_id_(session_id),
+        socket_(std::move(socket))
     {
     }
 
@@ -17,7 +17,7 @@ namespace jl
         return session_id_;
     }
 
-    void PbSession::StartRead()
+    void PbSession::Read()
     {
         this->ReadRequestLen();
     }
@@ -73,21 +73,16 @@ namespace jl
     {
         if (!ec)
         {
-            std::optional<std::shared_ptr<IRequest>> req_opt = coder_->DecodeRequest(read_buffer_);
-            if (!req_opt.has_value()) // decode request failed
-            {
-                // log
-                Close();
-                return;
-            }
             if (read_callback_)
             {
-                read_callback_(shared_from_this(), req_opt.value());
+                read_callback_(shared_from_this(), read_buffer_);
             }
             else
             {
                 // rpc failed, handle no callback set，send error code
-                OnNoReadCallback(req_opt.value());
+                
+                // define a global func ???
+                // OnNoReadCallback(req_opt.value());
             }
         }
         else
@@ -101,13 +96,12 @@ namespace jl
         }
     }
 
-    void PbSession::Write(const ResponsePtr &response_ptr)
+    void PbSession::Write(const std::string& data)
     {
-        std::string resp_str = coder_->EncodeResponse(response_ptr);
         auto self = shared_from_this();
         asio::post(
             socket_.get_executor(), // 保证send_queue线程安全
-            [self, copy = std::move(resp_str)]()
+            [self, copy = std::move(data)]()
             {
                 const bool is_writing = !self->write_queue_.empty();
                 self->write_queue_.emplace(copy);
@@ -159,6 +153,14 @@ namespace jl
         }
     }
 
+    void PbSession::OnTimeout(const std::error_code& ec)
+    {
+        if (ec != asio::error::operation_aborted)
+        {
+
+        }
+    }
+
     void PbSession::Close()
     {
         ConnectionState expected = ConnectionState::kActived;
@@ -176,11 +178,5 @@ namespace jl
 
     void PbSession::HandleError(const std::error_code &ec)
     {
-    }
-
-    void PbSession::OnNoReadCallback(const RequestPtr &req_ptr)
-    {
-        ResponsePtr resp_ptr = std::make_shared<PbResponse>(req_ptr->GetMsgId(), "", DataErrorCode::kUnRegisterFunction);
-        Write(resp_ptr);
     }
 }

@@ -3,10 +3,10 @@
 /// @date 2026-4-2
 
 #pragma once
+
+#include <interface/i_serialize.h>
 #include <string>
 #include <unordered_map>
-#include <memory>
-#include <interface/i_serialize.h>
 
 namespace jl
 {
@@ -16,14 +16,14 @@ namespace jl
     enum class DataErrorCode : int32_t
     {
         kNoError = 0,
-        kUnRegisterFunction, // 函数未注册
+        kFunctionNotFound, // 函数未注册
         kInvaliadRequest,    // 请求解析异常
         kUnknown,            // 未知异常
     };
 
     const static std::unordered_map<DataErrorCode, std::string> kDataErrorMsgMap = {
         {DataErrorCode::kNoError, "No error."},
-        {DataErrorCode::kUnRegisterFunction, "UnRegister function."},
+        {DataErrorCode::kFunctionNotFound, "Function not found."},
         {DataErrorCode::kInvaliadRequest, "Invalid request."},
         {DataErrorCode::kUnknown, "Unknown error type."},
     };

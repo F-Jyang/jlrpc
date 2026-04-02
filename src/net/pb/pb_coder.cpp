@@ -26,7 +26,7 @@ namespace jl
         return req_with_len;
     }
 
-    std::optional<std::shared_ptr<IRequest>> PbCoder::DecodeRequest(asio::streambuf &buffer)
+    RequestPtr PbCoder::DecodeRequest(asio::streambuf &buffer)
     {
         std::string req_str(buffer.size(), '\0');
         std::istream is(&buffer);
@@ -34,16 +34,15 @@ namespace jl
         if (req_str.size() == 0 || req_str.size() > kMaxRequestSize)
         {
             // log
-            return std::nullopt;
+            return nullptr;
         }
         auto req = std::make_shared<PbRequest>();
         if (!req->ParseFromString(req_str))
         {
             // log
-            return std::nullopt;
+            return nullptr;
         }
-        std::optional<std::shared_ptr<IRequest>> result = std::make_optional<std::shared_ptr<IRequest>>(req);
-        return result;
+        return req;
     }
 
     std::string PbCoder::EncodeResponse(const ResponsePtr &resp_ptr)
@@ -66,7 +65,7 @@ namespace jl
         return resp_with_len;
     }
 
-    std::optional<std::shared_ptr<IResponse>> PbCoder::DecodeResponse(asio::streambuf &buffer)
+    ResponsePtr PbCoder::DecodeResponse(asio::streambuf &buffer)
     {
         std::string resp_str(buffer.size(), '\0');
         std::istream is(&buffer);
@@ -74,14 +73,14 @@ namespace jl
         if (resp_str.size() == 0 || resp_str.size() > kMaxRequestSize)
         {
             // log
-            return std::nullopt;
+            return nullptr;
         }
         auto resp = std::make_shared<PbResponse>();
         if (!resp->ParseFromString(resp_str))
         {
             // log
-            return std::nullopt;
+            return nullptr;
         }
-        return std::make_optional<std::shared_ptr<IResponse>>(resp);
+        return resp;
     }
 }
