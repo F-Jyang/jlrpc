@@ -32,9 +32,9 @@ namespace jl
 
     private:
         /// @brief 处理接受连接的回调函数
-        /// @param ec 错误码
         /// @param socket 连接套接字
-        void OnAccept(const std::error_code &ec, net::tcp::socket socket);
+        /// @param ec 错误码
+        void OnAccept(net::tcp::socket&& socket, const std::error_code &ec);
 
     private:
         asio::io_context &ioct_;

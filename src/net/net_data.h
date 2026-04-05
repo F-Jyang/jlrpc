@@ -1,0 +1,111 @@
+/// @brief 请求、响应及数据相关接口
+/// @author Jyang.
+/// @date 2026-4-2
+
+#pragma once
+
+#include <interface/i_serialize.h>
+#include <net/net_error_code.h>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+
+namespace jl
+{
+
+    constexpr int32_t kMaxRequestSize = 4 * 1024;
+    constexpr int32_t kMaxResponseSize = 4 * 1024;
+
+    class Request;
+    class Response;
+
+    using RequestPtr = std::shared_ptr<Request>;
+    using ResponsePtr = std::shared_ptr<Response>;
+
+    struct Request
+    {
+    public:
+        Request() noexcept;
+
+        Request(const std::string &msg_id, const std::string &service_full_name, const std::string &param) noexcept;
+
+        Request(const std::string &service_full_name, const std::string &param) noexcept;
+
+        void SetMsgId(const std::string &msg_id);
+
+        std::string_view GetMsgId() const;
+
+        void SetServiceFullName(const std::string_view &service_full_name);
+
+        std::string_view GetServiceFullName() const;
+
+        void SetParam(const std::string_view &param);
+
+        std::string_view GetParam() const;
+
+        int32_t GetSize() const;
+
+        // /// @brief 将被序列化为string的requst重写解序列化为request
+        // /// @param req_str
+        // /// @return
+        // bool ParseFromString(const std::string &req_str);
+
+        // std::string SerializeToString();
+
+    private:
+        // min_size is 16Bytes
+
+        // int32_t msg_id_len_;            // 消息id长度
+        // int32_t service_full_name_len_; // 服务全名长度
+        // int32_t pb_data_len_;           // pb数据长度
+        std::string msg_id_;            // 消息id
+        std::string service_full_name_; // 服务全名,service.function
+        std::string param_;             // rpc参数
+    };
+
+    struct Response
+    {
+    public:
+        Response() noexcept;
+
+        Response(const std::string &msg_id, const std::string &pd_data, NetErrorCode error_code = NetErrorCode::kNoError) noexcept;
+
+        void SetMsgId(const std::string_view &msg_id);
+
+        std::string_view GetMsgId() const;
+
+        void SetResult(const std::string_view &result);
+
+        std::string_view GetResult() const;
+
+        int32_t GetSize() const;
+
+        void SetErrorCode(NetErrorCode ec);
+
+        int32_t GetErrorCode() const;
+
+        // bool ParseFromString(const std::string &req_str);
+
+        // std::string SerializeToString();
+
+    private:
+        // int32_t msg_id_len_;  // 消息id长度
+        // int32_t pb_data_len_; // pb数据长度
+        NetErrorCode error_code_; // 错误码
+        std::string msg_id_;      // 消息id
+        std::string result_;      // rpc结果
+    };
+
+    class HeartBeatRequest : public Request
+    {
+    public:
+        explicit HeartBeatRequest() noexcept;
+    };
+
+    class HeartBeatResponse : public Response
+    {
+    public:
+        explicit HeartBeatResponse() noexcept;
+    };
+}

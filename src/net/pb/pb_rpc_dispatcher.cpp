@@ -17,56 +17,68 @@ namespace jl
     {
         namespace Pb = google::protobuf;
 
-		ResponsePtr resp_ptr = std::make_shared<PbResponse>(req_ptr->GetMsgId(), "", DataErrorCode::kNoError);
-		std::string service_full_name = req_ptr->GetServiceFullName();
+        ResponsePtr resp_ptr = std::make_shared<Response>("-1", "", NetErrorCode::kNoError);
+        if (!req_ptr)
+        {
+            resp_ptr->SetErrorCode(NetErrorCode::kInvaliadRequest);
+            return resp_ptr;
+        }
+        std::string_view msg_id = req_ptr->GetMsgId();
+        resp_ptr->SetMsgId(msg_id);
+        if(msg_id == "HEARTBEAT") // heartbeat
+        {
+            resp_ptr->SetResult("PONG");
+            return resp_ptr;
+        }
+        std::string_view service_full_name = req_ptr->GetServiceFullName();
         std::string serivec_name, method_name;
         if (!GetServiceAndMethod(service_full_name, serivec_name, method_name))
         {
-            // param error
-            resp_ptr->SetErrorCode(DataErrorCode::kFunctionNotFound);
+            // serivce or function error
+            resp_ptr->SetErrorCode(NetErrorCode::kFunctionNotFound);
             return resp_ptr;
         }
         auto &&service_pair = service_map_.find(serivec_name);
         if (service_pair == service_map_.end())
         {
             // service unregister
-            resp_ptr->SetErrorCode(DataErrorCode::kFunctionNotFound);
-			return resp_ptr;
+            resp_ptr->SetErrorCode(NetErrorCode::kServiceNotFound);
+            return resp_ptr;
         }
         PbServicePtr service_ptr = service_pair->second;
         if (!service_ptr)
         {
             // service unregister
-			resp_ptr->SetErrorCode(DataErrorCode::kFunctionNotFound);
-			return resp_ptr;
+            resp_ptr->SetErrorCode(NetErrorCode::kServiceNotFound);
+            return resp_ptr;
         }
         const Pb::ServiceDescriptor *service_dp = service_ptr->GetDescriptor();
         if (!service_dp)
         {
             // service error
-			resp_ptr->SetErrorCode(DataErrorCode::kFunctionNotFound);
-			return resp_ptr;
+            resp_ptr->SetErrorCode(NetErrorCode::kServiceNotFound);
+            return resp_ptr;
         }
         const Pb::MethodDescriptor *method_dp = service_dp->FindMethodByName(method_name);
         if (!method_dp)
         {
             // method error
-			resp_ptr->SetErrorCode(DataErrorCode::kFunctionNotFound);
-			return resp_ptr;
+            resp_ptr->SetErrorCode(NetErrorCode::kFunctionNotFound);
+            return resp_ptr;
         }
         Pb::Message *request_msg = service_ptr->GetRequestPrototype(method_dp).New();
         Pb::Message *response_msg = service_ptr->GetResponsePrototype(method_dp).New();
         if (!response_msg || !request_msg)
         {
             // unknown error?
-            resp_ptr->SetErrorCode(DataErrorCode::kUnknown);
-			return resp_ptr;
+            resp_ptr->SetErrorCode(NetErrorCode::kUnknown);
+            return resp_ptr;
         }
-        if (!request_msg->ParseFromString(req_ptr->GetParam()))
+        if (!request_msg->ParseFromString(std::string(req_ptr->GetParam())))
         {
             // requset parse error
-            resp_ptr->SetErrorCode(DataErrorCode::kInvaliadRequest);
-			return resp_ptr;
+            resp_ptr->SetErrorCode(NetErrorCode::kInvaliadRequest);
+            return resp_ptr;
         }
         PbRpcClosure done;
         done.SetCallback([]() {});
@@ -76,7 +88,7 @@ namespace jl
         if (!response_msg->SerializeToString(&resp_str))
         {
             // response error
-			resp_ptr->SetErrorCode(DataErrorCode::kUnknown);
+            resp_ptr->SetErrorCode(NetErrorCode::kUnknown);
             return resp_ptr;
         }
         resp_ptr->SetResult(resp_str); // 设置rpc调用结果
@@ -98,9 +110,15 @@ namespace jl
         }
     }
 
-    bool PbRpcDispatcher::GetServiceAndMethod(const std::string &service_full_name, std::string &service_name, std::string &method_name)
+    bool PbRpcDispatcher::GetServiceAndMethod(const std::string_view &service_full_name, std::string &service_name, std::string &method_name)
     {
-
+        std::size_t pos = service_full_name.find(".");
+        if (pos == std::string_view::npos || pos + 1 == service_full_name.size())
+        {
+            return false;
+        }
+        service_name = service_full_name.substr(0, pos);
+        method_name = service_full_name.substr(pos + 1);
         return true;
     }
 

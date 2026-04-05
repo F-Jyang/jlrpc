@@ -5,13 +5,13 @@ set(SRCS
     "./main.cpp"
 )
 
-add_executable(demo ${SRCS})
+add_executable(pbserver_demo ${SRCS})
 
-target_include_directories(demo PUBLIC
+target_include_directories(pbserver_demo PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
-target_link_libraries(demo PUBLIC
+target_link_libraries(pbserver_demo PUBLIC
     jlrpc_static
     protobuf_demo
 )

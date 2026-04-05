@@ -1,86 +1,142 @@
 #include "pb_coder.h"
-#include <net/pb/pb_data.h>
+#include <net/net_data.h>
 #include <iostream>
 #include <assert.h>
+#include <string_view>
 
 namespace jl
 {
     std::string PbCoder::EncodeRequest(const RequestPtr &req_ptr)
     {
-        if(!req_ptr)
+        if (!req_ptr)
         {
             // nullptr error
             return "xxx";
-        }        
-        int32_t total_len = sizeof(int32_t) + req_ptr->GetSize();
-        if(total_len > kMaxRequestSize)
+        }
+        int32_t total_len = 4 * sizeof(int32_t) + req_ptr->GetSize();
+        if (total_len > kMaxRequestSize)
         {
             // length error
             return "xxx";
         }
-
+        std::string_view msg_id = req_ptr->GetMsgId(), param = req_ptr->GetParam(), service_full_name = req_ptr->GetServiceFullName();
+        int32_t msg_id_len = msg_id.size(), param_len = param.size(), service_full_name_len = service_full_name.size();
         std::string req_with_len(total_len, '\0');
-        std::string req_str = req_ptr->SerializeToString();
-        memcpy(req_with_len.data(), &total_len, sizeof(int32_t));
-        memcpy(req_with_len.data() + sizeof(int32_t), req_str.c_str(), req_str.size());
+        int idx = 0;
+        memcpy(req_with_len.data(), &total_len, sizeof(int32_t)); // 固定4Byte的总长度，用于提示对方包的长度消息
+        idx += sizeof(int32_t);
+        memcpy(req_with_len.data() + idx, &msg_id_len, sizeof(int32_t));
+        idx += sizeof(int32_t);
+        memcpy(req_with_len.data() + idx, &service_full_name_len, sizeof(int32_t));
+        idx += sizeof(int32_t);
+        memcpy(req_with_len.data() + idx, &param_len, sizeof(int32_t));
+        idx += sizeof(int32_t);
+        memcpy(req_with_len.data() + idx, msg_id.data(), msg_id_len);
+        idx += msg_id_len;
+        memcpy(req_with_len.data() + idx, service_full_name.data(), service_full_name_len);
+        idx += service_full_name_len;
+        memcpy(req_with_len.data() + idx, param.data(), param_len);
         return req_with_len;
     }
 
-    RequestPtr PbCoder::DecodeRequest(asio::streambuf &buffer)
+    RequestPtr PbCoder::DecodeRequest(asio::streambuf &buffer, std::size_t bytes_transfered)
     {
-        std::string req_str(buffer.size(), '\0');
+        std::string req_str(bytes_transfered, '\0');
         std::istream is(&buffer);
-        is.read(req_str.data(), buffer.size());
-        if (req_str.size() == 0 || req_str.size() > kMaxRequestSize)
+        is.read(req_str.data(), bytes_transfered);
+        if (req_str.size() < 3 * sizeof(int32_t) || req_str.size() > kMaxRequestSize)
         {
             // log
             return nullptr;
         }
-        auto req = std::make_shared<PbRequest>();
-        if (!req->ParseFromString(req_str))
+        auto req = std::make_shared<Request>();
+        int32_t msg_id_len = 0, param_len = 0, service_full_name_len = 0;
+        int idx = 0;
+        memcpy(&msg_id_len, req_str.data(), sizeof(int32_t));
+        idx += sizeof(int32_t);
+        memcpy(&param_len, req_str.data() + idx, sizeof(int32_t));
+        idx += sizeof(int32_t);
+        memcpy(&service_full_name_len, req_str.data() + idx, sizeof(int32_t));
+        idx += sizeof(int32_t);
+        if (msg_id_len + service_full_name_len + param_len != req_str.size() - idx)
         {
             // log
             return nullptr;
         }
+        req->SetMsgId(req_str.substr(idx, msg_id_len));
+        idx += msg_id_len;
+        req->SetServiceFullName(req_str.substr(idx, service_full_name_len));
+        idx += service_full_name_len;
+        req->SetParam(req_str.substr(idx, param_len));
         return req;
     }
 
     std::string PbCoder::EncodeResponse(const ResponsePtr &resp_ptr)
     {
-        if(!resp_ptr)
+        if (!resp_ptr)
         {
             // nullptr error
             return "xxx";
-        }        
-        int32_t total_len = sizeof(int32_t) + resp_ptr->GetSize();
-        if(total_len > kMaxResponseSize)
+        }
+        int32_t total_len = 3 * sizeof(int32_t) + resp_ptr->GetSize();
+        if (total_len > kMaxResponseSize)
         {
             // length error
             return "xxx";
         }
+        std::string_view msg_id = resp_ptr->GetMsgId(), result = resp_ptr->GetResult();
+        int32_t error_code = resp_ptr->GetErrorCode();
+        int32_t msg_id_len = msg_id.size(), result_len = result.size();
         std::string resp_with_len(total_len, '\0');
-        std::string resp_str = resp_ptr->SerializeToString();
-        memcpy(resp_with_len.data(), &total_len, sizeof(int32_t));
-        memcpy(resp_with_len.data() + sizeof(int32_t), resp_str.c_str(), resp_str.size());
+        int idx = 0;
+        memcpy(resp_with_len.data(), &total_len, sizeof(int32_t)); // 固定4Byte的总长度，用于提示对方包的长度消息
+        idx += sizeof(int32_t);
+        memcpy(resp_with_len.data() + idx, &msg_id_len, sizeof(int32_t));
+        idx += sizeof(int32_t);
+        memcpy(resp_with_len.data() + idx, &result_len, sizeof(int32_t));
+        idx += sizeof(int32_t);
+        memcpy(resp_with_len.data() + idx, msg_id.data(), msg_id_len);
+        idx += msg_id_len;
+        memcpy(resp_with_len.data() + idx, result.data(), result_len);
+        idx += result_len;
+        memcpy(resp_with_len.data() + idx, &error_code, sizeof(int32_t));
         return resp_with_len;
     }
 
-    ResponsePtr PbCoder::DecodeResponse(asio::streambuf &buffer)
+    ResponsePtr PbCoder::DecodeResponse(asio::streambuf &buffer, std::size_t bytes_transfered)
     {
-        std::string resp_str(buffer.size(), '\0');
+        std::string resp_str(bytes_transfered, '\0');
         std::istream is(&buffer);
-        is.read(resp_str.data(), buffer.size());
-        if (resp_str.size() == 0 || resp_str.size() > kMaxRequestSize)
+        is.read(resp_str.data(), bytes_transfered);
+        if (resp_str.size() < 2 * sizeof(int32_t) || resp_str.size() > kMaxResponseSize)
         {
             // log
             return nullptr;
         }
-        auto resp = std::make_shared<PbResponse>();
-        if (!resp->ParseFromString(resp_str))
+        auto resp = std::make_shared<Response>();
+        int32_t msg_id_len = 0, result_len = 0;
+        int idx = 0;
+        memcpy(&msg_id_len, resp_str.data(), sizeof(int32_t));
+        idx += sizeof(int32_t);
+        memcpy(&result_len, resp_str.data() + idx, sizeof(int32_t));
+        idx += sizeof(int32_t);
+        if (msg_id_len + result_len + sizeof(int32_t) /*error_code */ != resp_str.size() - idx)
         {
             // log
             return nullptr;
         }
+        resp->SetMsgId(resp_str.substr(idx, msg_id_len));
+        idx += msg_id_len;
+        resp->SetResult(resp_str.substr(idx, result_len));
+        idx += result_len;
+        int32_t error_code;
+        memcpy(&error_code, resp_str.data() + idx, sizeof(int32_t));
         return resp;
+    }
+
+    Coder<PbCoder> &GetPbCoder()
+    {
+        static Coder<PbCoder> coder;
+        return coder;
     }
 }

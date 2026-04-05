@@ -4,34 +4,49 @@
 
 #pragma once
 
-#include <interface/i_data.h>
+#include <net/net_data.h>
 #include <asio/streambuf.hpp>
 #include <optional>
 #include <memory>
 
 namespace jl
 {
-    class ICoder
+    template<typename CodeImpl>
+    class Coder
     {
     public:
         /// @brief 编码请求。将request转换为string用于发送
         /// @param request
         /// @return
-        virtual std::string EncodeRequest(const RequestPtr &request) = 0;
+        std::string EncodeRequest(const RequestPtr &request)
+        {
+            return impl_.EncodeRequest(request);
+        }
 
-        /// @brief 解码请求。成功返回IRequest，失败返回nullptr
+        /// @brief 解码请求。成功返回Request，失败返回nullptr
         /// @param buffer
         /// @return
-        virtual RequestPtr DecodeRequest(asio::streambuf &buffer) = 0;
+        RequestPtr DecodeRequest(asio::streambuf &buffer, std::size_t bytes_transfered) 
+        {
+            return impl_.DecodeRequest(buffer, bytes_transfered);
+        }
 
         /// @brief 编码响应。将request转换为string用于发送
         /// @param response
         /// @return
-        virtual std::string EncodeResponse(const ResponsePtr &response) = 0;
+        std::string EncodeResponse(const ResponsePtr &response) 
+        {
+            return impl_.EncodeResponse(response);
+        }
 
-        /// @brief 解码响应。成功返回IResponse，失败返回nullptr
+        /// @brief 解码响应。成功返回Response，失败返回nullptr
         /// @param buffer
         /// @return
-        virtual ResponsePtr DecodeResponse(asio::streambuf &buffer) = 0;
+        ResponsePtr DecodeResponse(asio::streambuf &buffer, std::size_t bytes_transfered)
+        {
+            return impl_.DecodeResponse(buffer, bytes_transfered);
+        }
+    private:
+        CodeImpl impl_;
     };
 }

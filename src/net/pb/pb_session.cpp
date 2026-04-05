@@ -1,182 +1,158 @@
 #include "pb_session.h"
-
-#include <net/pb/pb_data.h>
-#include <asio/read.hpp>
-#include <asio/write.hpp>
+#include <utils/easy_log.hpp>
 
 namespace jl
 {
-    PbSession::PbSession(int64_t session_id, net::tcp::socket&& socket) :
-        session_id_(session_id),
-        socket_(std::move(socket))
+    PbSession::PbSession(net::tcp::socket &&socket)
+        : connection_(std::make_shared<TcpConnection>(std::move(socket))),
+        state_(PbSessionState::kReadTotalLen)
     {
+        LOG_DEBUG << "New tcpConnection";
+        ConnectionInfo info = connection_->GetConnectionInfo();
+        session_id_ = info.hash();
+        // std::stringstream oss;
+        // oss << info_.local_ip << ":" << info_.local_port << "-" << info_.remote_ip << ":" << info_.remote_port << "-" << info_.protocol;
+        // id_ = std::hash<std::string>{}(oss.str());
     }
 
-    int64_t PbSession::GetId() const
+    void PbSession::Start()
     {
-        return session_id_;
+        connection_->ReadLen(kTotalLenSize);
     }
 
-    void PbSession::Read()
+    std::size_t PbSession::GetId() const
     {
-        this->ReadRequestLen();
+        return std::size_t();
     }
 
-    void PbSession::ReadRequestLen()
+    void PbSession::SetRequestCallback(const PbRequestCallback &callback)
     {
-        bool expected = false;
-        if (is_reading_.compare_exchange_strong(expected, true))
-        {
-            auto self = shared_from_this();
-            asio::async_read(
-                this->socket_,
-                read_buffer_,
-                asio::transfer_exactly(kTotalLenSize),
-                [self](const std::error_code &ec, std::size_t bytes_transferred)
+        request_callback_ = callback;
+        std::weak_ptr<PbSession> weak = shared_from_this();
+        connection_->SetReadCallback(
+            [weak](const ConnectionPtr &conn, asio::streambuf &buffer, size_t bytes_transfered)
+            {
+                PbSessionPtr self = weak.lock();
+                if (!self)
+                    return;
+                // self->OnRequest(conn, buffer, bytes_transfered);
+                if (self->state_ == PbSessionState::kReadTotalLen)
                 {
-                    if (ec)
+                    if (bytes_transfered != kTotalLenSize)
                     {
-                        self->HandleError(ec);
+                        // log
+                        assert(false);
+                        // error
                         return;
                     }
-
-                    if (self->state_ != ConnectionState::kClosed)
-                    {
-                        std::istream is(&self->read_buffer_);
-                        std::size_t len;
-                        is.read((char *)(&len), bytes_transferred); // 暂时不做大小端处理
-                        self->ReadRequest(len);
-                    }
-                });
-        }
-    }
-
-    void PbSession::ReadRequest(std::size_t req_len)
-    {
-        auto self = shared_from_this();
-        asio::async_read(
-            this->socket_,
-            read_buffer_,
-            asio::transfer_exactly(req_len),
-            [self](const std::error_code &ec, std::size_t bytes_transferred)
-            {
-                if (self->state_ != ConnectionState::kClosed)
+                    std::size_t req_len = 0;
+                    std::istream is(&buffer);
+                    is.read(reinterpret_cast<char *>(&req_len), kTotalLenSize);
+                    self->connection_->ReadLen(req_len - kTotalLenSize);
+                    self->state_ = PbSessionState::kReadRequest;
+                }
+                else if (self->state_ == PbSessionState::kReadRequest)
                 {
-                    self->OnRead(ec, bytes_transferred);
-                    bool expected = true;
-                    self->is_reading_.compare_exchange_strong(expected, false);
+                    RequestPtr req_ptr = GetPbCoder().DecodeRequest(buffer, bytes_transfered);
+                    self->request_callback_(self, req_ptr);
+                    self->state_ = PbSessionState::kReadTotalLen;
+                }
+                else
+                {
+                    // log
+                    assert(false);
+                    // error
+                    return;
                 }
             });
     }
 
-    void PbSession::OnRead(const std::error_code &ec, size_t bytes_transferred)
+    void PbSession::WriteResponse(const ResponsePtr &response)
     {
-        if (!ec)
-        {
-            if (read_callback_)
-            {
-                read_callback_(shared_from_this(), read_buffer_);
-            }
-            else
-            {
-                // rpc failed, handle no callback set，send error code
-                
-                // define a global func ???
-                // OnNoReadCallback(req_opt.value());
-            }
-        }
-        else
-        {
-            if (ec != asio::error::eof)
-            {
-                std::error_code ignore;
-                // log
-            }
-            Close();
-        }
+        std::string resp_str = GetPbCoder().EncodeResponse(response);
+        connection_->Write(resp_str);
     }
 
-    void PbSession::Write(const std::string& data)
+    void PbSession::SetResponseCallback(const PbResponseCallback &callback)
     {
-        auto self = shared_from_this();
-        asio::post(
-            socket_.get_executor(), // 保证send_queue线程安全
-            [self, copy = std::move(data)]()
+        response_callback_ = callback;
+        std::weak_ptr<PbSession> weak = shared_from_this();
+        connection_->SetWriteCallback(
+            [weak](const ConnectionPtr &conn, std::size_t bytes_transferred)
             {
-                const bool is_writing = !self->write_queue_.empty();
-                self->write_queue_.emplace(copy);
-                if (!is_writing)
-                {
-                    self->DoWrite();
-                }
+                PbSessionPtr self = weak.lock();
+                if (!self)
+                    return;
+                self->response_callback_(self, bytes_transferred);
             });
     }
 
-    void PbSession::DoWrite()
+    void PbSession::SetCloseCallback(const PbSessionCloseCallback &callback)
     {
-        auto self = shared_from_this();
-        asio::async_write(
-            socket_,
-            asio::buffer(this->write_queue_.front()),
-            asio::transfer_exactly(this->write_queue_.front().size()),
-            [self](const std::error_code &ec, size_t bytes_transferred)
+        close_callback_ = callback;
+        std::weak_ptr<PbSession> weak = shared_from_this();
+        connection_->SetCloseCallback(
+            [weak](const ConnectionPtr &conn)
             {
-                if (self->state_ != ConnectionState::kClosed) // 连接已断开
-                {
-                    self->OnWrite(ec, bytes_transferred);
-                    if (!ec)
-                    {
-                        self->write_queue_.pop();
-                        if (!self->write_queue_.empty())
-                        {
-                            self->DoWrite();
-                        }
-                    }
-                }
+                PbSessionPtr self = weak.lock();
+                if (!self || !self->close_callback_)
+                    return;
+                self->close_callback_(self);
             });
     }
 
-    void PbSession::OnWrite(const std::error_code &ec, size_t bytes_transferred)
+    std::size_t PbSession::GetTimeout() const
     {
-        if (!ec)
-        {
-            if (write_callback_)
-            {
-                write_callback_(shared_from_this(), bytes_transferred);
-            }
-        }
-        else
-        {
-            std::error_code ignore;
-            // log
-            Close();
-        }
+        return timeout_;
     }
 
-    void PbSession::OnTimeout(const std::error_code& ec)
+    void PbSession::SetTimeout(std::size_t timeout)
     {
-        if (ec != asio::error::operation_aborted)
-        {
-
-        }
+        timeout_ = timeout;
     }
 
     void PbSession::Close()
     {
-        ConnectionState expected = ConnectionState::kActived;
-        if (state_.compare_exchange_strong(expected, ConnectionState::kClosed))
+        connection_->Close();
+    }
+
+    PbSession::~PbSession()
+    {
+        LOG_DEBUG << "Session close";
+    }
+
+    void PbSession::OnRequest(const ConnectionPtr &conn, asio::streambuf &buffer, size_t bytes_transfered)
+    {
+        if (state_ == PbSessionState::kReadTotalLen)
         {
-            std::error_code ignore;
-            socket_.shutdown(net::tcp::socket::shutdown_both, ignore);
-            socket_.close(ignore); // 文档要求: call shutdown() before closing the socket，否则可能会提示非法套接字，好像就算先shutdown也可能会
-            if (this->close_callback_)
+            if (bytes_transfered != kTotalLenSize)
             {
-                this->close_callback_(shared_from_this());
+                // log
+                assert(false);
+                // error
+                return;
             }
+            std::size_t req_len = 0;
+            std::istream is(&buffer);
+            is.read(reinterpret_cast<char *>(&req_len), kTotalLenSize);
+            connection_->ReadLen(req_len);
+        }
+        else if (state_ == PbSessionState::kReadRequest)
+        {
+            RequestPtr req_ptr = GetPbCoder().DecodeRequest(buffer, bytes_transfered);
+            request_callback_(shared_from_this(), req_ptr);
+        }
+        else
+        {
+            // log
+            assert(false);
+            // error
+            return;
         }
     }
 
-    void PbSession::HandleError(const std::error_code &ec)
+    void PbSession::OnResponse(const ConnectionPtr &conn, std::size_t bytes_transferred)
     {
+        response_callback_(shared_from_this(), bytes_transferred);
     }
 }

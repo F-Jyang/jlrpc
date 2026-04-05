@@ -4,6 +4,7 @@
 
 #pragma once
 #include <queue>
+#include <memory>
 
 namespace jl
 {
@@ -23,6 +24,12 @@ namespace jl
     class TimerWheel
     {
     public:
+    
     private:
+    
     };
+
+    
+    std::shared_ptr<TimerWheel> GetTimerWheel();
+
 }

@@ -1,5 +1,5 @@
 #pragma once
-#include <net/pb/pb_data.h>
+#include <net/net_data.h>
 #include <interface/i_session.h>
 #include <map>
 #include <string>
@@ -19,7 +19,7 @@ namespace jl
         void UnRegisterService(const std::string &name);
 
     private:
-        bool GetServiceAndMethod(const std::string& service_full_name, std::string& service_name, std::string& method_name);    
+        bool GetServiceAndMethod(const std::string_view& service_full_name, std::string& service_name, std::string& method_name);    
 
     private:
         std::map<std::string, PbServicePtr> service_map_;

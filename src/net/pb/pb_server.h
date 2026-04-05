@@ -14,22 +14,26 @@ namespace jl
     class PbServer
     {
     public:
-        PbServer(asio::io_context &ioct, const std::string &ip, unsigned short port);
+        PbServer(asio::io_context& main_ioct, const std::string &ip, unsigned short port, std::size_t thread_size = std::thread::hardware_concurrency() * 2);
+
+        void RegisterSerivce(const std::string& service_name, const PbServicePtr &service_ptr);
+
+        void UnRegisterService(const std::string& service_name);
 
         void Start();
 
         void Stop();
 
     private:
-        void OnSessionClose(const SessionPtr &session_ptr);
-        void OnSessionRead(const SessionPtr &ptr, asio::streambuf& buffer);
-        void OnSessionWrite(const SessionPtr &ptr, std::size_t bytes_transferred);
+        void OnSessionClose(const PbSessionPtr &session);
+        void OnSessionRead(const PbSessionPtr &session, const RequestPtr &request);
+        void OnSessionWrite(const PbSessionPtr &session, std::size_t bytes_transferred);
+
     private:
         std::unique_ptr<asio::steady_timer> timer_;
         std::unique_ptr<Server> tcp_server_;
-        std::unique_ptr<ICoder> pb_coder_;
-        std::unique_ptr<PbRpcDispatcher> dispacher_;
+        std::unique_ptr<PbRpcDispatcher> dispatcher_;
         std::mutex session_mutex_;
-        std::unordered_map<int64_t, SessionPtr> session_map_;
+        std::unordered_map<int64_t, PbSessionPtr> session_map_;
     };
 }

@@ -1,13 +1,14 @@
 #include "acceptor.h"
-#include <asio/strand.hpp>
+#include <utils/easy_log.hpp>
+#include <net/io_context_pool.h>
 
-
-jl::Acceptor::Acceptor(asio::io_context& ioct, const std::string& ip, unsigned short port) :
-    ioct_(ioct),
-    acceptor_(asio::make_strand(ioct))
+jl::Acceptor::Acceptor(asio::io_context &ioct, const std::string &ip, unsigned short port)
+    : ioct_(ioct),
+      acceptor_(ioct)
 {
+    LOG_DEBUG << "jlrpc listen on " << ip << ":" << std::to_string(port);
     net::tcp::endpoint endpoint(asio::ip::make_address(ip), port);
-    //std::error_code ec;
+    // std::error_code ec;
     acceptor_.open(endpoint.protocol());
     // allow address reuse
     acceptor_.set_option(asio::socket_base::reuse_address(true));
@@ -18,13 +19,13 @@ jl::Acceptor::Acceptor(asio::io_context& ioct, const std::string& ip, unsigned s
     // LOG_WARN("Acceptor listen on {}:{}", endpoint.address().to_string(), endpoint.port());
 }
 
-void jl::Acceptor::OnAccept(const std::error_code &ec, net::tcp::socket socket)
+void jl::Acceptor::OnAccept(net::tcp::socket &&socket, const std::error_code &ec)
 {
     if (ec)
-    { // 如果错误，直接返回
+    {
         assert(false);
-        // LOG_ERROR("OnAccept fail:{}", ec.message());
-        return;
+        LOG_DEBUG << "OnAccept fail:" << ec.message();
+        // return;
     }
     if (conn_establish_callback_)
     {
@@ -46,12 +47,15 @@ void jl::Acceptor::DoAccept()
         assert(false);
         return; // 直接返回
     }
-    auto socket_ptr = std::make_shared<net::tcp::socket>(asio::make_strand(ioct_));
+    // 每个线程一个ioct，不需要使用strand来保证异步操作串行
+    // auto socket_ptr = std::make_shared<net::tcp::socket>(asio::make_strand(ioct_));
     auto self(shared_from_this()); // 获取自身的shared_ptr，防止在异步操作中被销毁
-    acceptor_.async_accept(*socket_ptr, [socket_ptr, self](const std::error_code& ec) {
-        self->OnAccept(ec, std::move(*socket_ptr));
-        }
-    );
+    acceptor_.async_accept(
+        IoContextPool::Instance().GetIoContext(),
+        [self](const std::error_code &ec, net::tcp::socket &&socket)
+        {
+            self->OnAccept(std::move(socket), ec);
+        });
 }
 
 jl::Acceptor::~Acceptor()

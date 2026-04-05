@@ -1,1 +1,2 @@
-add_subdirectory("./protobuf_demo")
+add_subdirectory("./pbclient_demo")
+add_subdirectory("./pbserver_demo")
