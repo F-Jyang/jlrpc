@@ -15,7 +15,7 @@ namespace jl
     class TcpConnection;
     using ConnectionPtr = std::shared_ptr<TcpConnection>;
 
-    using ReadCallback = std::function<void(const ConnectionPtr &, const std::string&)>;  // TODO: read callback 返回string，返回streambuf可能会有streambuf的数据没有consume的问题
+    using ReadCallback = std::function<void(const ConnectionPtr &, const std::string&)>;  
     using WriteCallback = std::function<void(const ConnectionPtr &, std::size_t bytes_transferred)>;
     using CloseCallback = std::function<void(const ConnectionPtr &)>;
 
@@ -95,9 +95,6 @@ namespace jl
         void OnTimeout(const std::error_code &ec);
 
         void HandleError(const std::error_code &ec);
-
-        // void OnNoReadCallback(const RequestPtr &req_ptr);
-
     
     private:
         net::tcp::socket socket_;

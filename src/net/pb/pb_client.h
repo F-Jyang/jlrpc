@@ -4,6 +4,7 @@
 #include <net/pb/pb_coder.h>
 #include <utils/easy_log.hpp>
 #include <asio/steady_timer.hpp>
+#include <mutex>
 
 namespace jl
 {
@@ -31,7 +32,7 @@ namespace jl
 
         void SendHeartBeat();
 
-        void Read();
+        void ReadResponse();
 
         void Close();
 
@@ -56,7 +57,7 @@ namespace jl
             read_callback_ = callback;
             std::weak_ptr<PbClient> weak = shared_from_this();
             connection_->SetReadCallback(
-                [weak](const ConnectionPtr &conn, const std::string& resp_str)
+                [weak](const ConnectionPtr &conn, const std::string &resp_str)
                 {
                     auto self = weak.lock();
                     if (!self)
@@ -79,12 +80,11 @@ namespace jl
                     {
                         return;
                     }
-                    // TODO:
                 });
         }
 
     private:
-        void OnResponse(const ConnectionPtr &conn, const std::string& resp_str);
+        void OnResponse(const ConnectionPtr &conn, const std::string &resp_str);
 
         void OnRequest(const ConnectionPtr &conn, std::size_t bytes_transferred);
 

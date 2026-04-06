@@ -32,16 +32,6 @@ namespace jl
         return iter != resolve_result.end();
     }
 
-    // std::size_t TcpConnection::GetId() const
-    // {
-    //     return id_;
-    // }
-
-    // void TcpConnection::Read()
-    // {
-    //     this->ReadRequestLen();
-    // }
-
     void TcpConnection::ReadLen(std::size_t n)
     {
         bool expected = false;
@@ -61,6 +51,11 @@ namespace jl
                         self->OnRead(ec, bytes_transferred);
                     }
                 });
+        }
+        else
+        {
+            // 禁止同一时刻注册两个async_read事件
+            assert(false);
         }
     }
 
@@ -101,6 +96,7 @@ namespace jl
     {
         if (!ec)
         {
+            LOG_DEBUG << "TcpConnection read len: " << std::to_string(bytes_transferred);
             if (read_callback_)
             {
                 std::string read_str(bytes_transferred,'\0');
@@ -136,6 +132,7 @@ namespace jl
             {
                 const bool is_writing = !self->write_queue_.empty();
                 self->write_queue_.emplace(copy);
+                // LOG_DEBUG << std::to_string(self->write_queue_.size());
                 if (!is_writing)
                 {
                     self->DoWrite();

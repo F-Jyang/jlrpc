@@ -17,8 +17,14 @@ namespace jl
 
     void PbClient::SendRequest(const RequestPtr &req_ptr)
     {
-        std::string req_str = GetPbCoder().EncodeRequest(req_ptr);
+        std::string req_str = GetPbCoder().EncodeRequest(req_ptr);       
         connection_->Write(req_str);
+        // std::lock_guard<std::mutex> lock(write_mutex_);
+        // bool is_writing = !write_queue_.empty();
+        // write_queue_.emplace(req_str);
+        // if(!is_writing)
+        // {
+        // }
     }
 
     void PbClient::SendHeartBeat()
@@ -27,7 +33,7 @@ namespace jl
         SendRequest(req_ptr);
     }
 
-    void PbClient::Read()
+    void PbClient::ReadResponse()
     {
         connection_->ReadLen(kTotalLenSize);
     }
@@ -58,6 +64,7 @@ namespace jl
             ResponsePtr resp_ptr = GetPbCoder().DecodeResponse(resp_str);
             read_callback_(shared_from_this(), resp_ptr);
             state_ = PbClientState::kReadTotalLen;
+            ReadResponse();
         }
         else
         {
@@ -71,5 +78,11 @@ namespace jl
     void PbClient::OnRequest(const ConnectionPtr &conn, std::size_t bytes_transferred)
     {
         write_callback_(shared_from_this(), bytes_transferred);
+        // std::lock_guard<std::mutex> lock(write_mutex_);
+        // write_queue_.pop();
+        // if(!write_queue_.empty())
+        // {
+        //     connection_->Write()
+        // }
     }
 }

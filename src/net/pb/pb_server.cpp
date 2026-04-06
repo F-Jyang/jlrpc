@@ -81,15 +81,13 @@ namespace jl
             // TODO：refresh timeout
             session->SetTimeout(111);
         }
-        // std::string resp_str = pb_coder_->EncodeResponse(resp_ptr);
         session->WriteResponse(resp_ptr);
-        // read next rpc request
+        session->Start();
     }
 
     void PbServer::OnSessionWrite(const PbSessionPtr &session, std::size_t bytes_transferred)
     {
         assert(session);
         LOG_DEBUG << "Session write " << std::to_string(bytes_transferred);
-        session->Start();
     }
 }

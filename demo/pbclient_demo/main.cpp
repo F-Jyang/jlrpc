@@ -2,6 +2,7 @@
 #include <net/pb/pb_client.h>
 #include <utils/easy_log.hpp>
 #include <query_service_impl.h>
+#include <thread>
 
 int main()
 {
@@ -15,25 +16,20 @@ int main()
             {
                 std::string result(response->GetResult());
                 LOG_DEBUG << result;
-                QueryReq req;
-                req.set_id(123);
-                req.set_req_no(234);
-                std::string req_str = req.SerializeAsString();
-                jl::RequestPtr req_ptr = std::make_shared<jl::Request>("query_service.QueryName", req_str);
-                client->SendRequest(req_ptr);
             }
             else
             {
                 QueryRsp resp;
                 std::string result(response->GetResult());
-                if(resp.ParseFromString(result))
+                if (resp.ParseFromString(result))
                 {
                     LOG_DEBUG << resp.msg() << " " << std::to_string(resp.errorcode());
-                    if(response->GetErrorCode()!=jl::NetErrorCode::kNoError)
+                    if (response->GetErrorCode() != jl::NetErrorCode::kNoError)
                     {
                         LOG_DEBUG << "Recive error: " << jl::GetPbErrorMsg(response->GetErrorCode());
                     }
-                }else
+                }
+                else
                 {
                     LOG_DEBUG << "parser faild!";
                 }
@@ -43,8 +39,20 @@ int main()
         [](const jl::PbClientPtr &client, std::size_t bytes_transefered)
         {
             LOG_DEBUG << "Client send " << std::to_string(bytes_transefered) << " bytes.";
-            client->Read();
         });
-    client_ptr->SendHeartBeat();
+
+    std::thread thread(
+        [&]()
+        {
+            client_ptr->SendHeartBeat();
+            QueryReq req;
+            req.set_id(123);
+            req.set_req_no(234);
+            std::string req_str = req.SerializeAsString();
+            jl::RequestPtr req_ptr = std::make_shared<jl::Request>("query_service.QueryName", req_str);
+            client_ptr->SendRequest(req_ptr);
+            client_ptr->ReadResponse();
+        });
+    thread.join();
     ioct.run();
 }
