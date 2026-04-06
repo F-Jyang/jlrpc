@@ -160,9 +160,9 @@ namespace jl
         error_code_ = ec;
     }
 
-    int32_t Response::GetErrorCode() const
+    NetErrorCode Response::GetErrorCode() const
     {
-        return static_cast<int32_t>(error_code_);
+        return error_code_;
     }
 
     // bool Response::ParseFromString(const std::string &req_str)

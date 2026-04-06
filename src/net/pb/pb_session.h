@@ -49,7 +49,7 @@ namespace jl
         
     private:
 
-        void OnRequest(const ConnectionPtr &conn, asio::streambuf &buffer, size_t bytes_transfered);
+        void OnRequest(const ConnectionPtr &conn, const std::string &req_str);
 
         void OnResponse(const ConnectionPtr &conn, std::size_t bytes_transferred);
 

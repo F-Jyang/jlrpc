@@ -3,7 +3,8 @@
 namespace jl
 {
     jl::PbClient::PbClient(asio::io_context &ioct, std::size_t max_buffer_size)
-        : state_(PbClientState::kReadTotalLen)
+        : state_(PbClientState::kReadTotalLen),
+         timer_(ioct)
     {
         net::tcp::socket socket(ioct);
         connection_ = std::make_shared<TcpConnection>(std::move(socket), max_buffer_size);
@@ -36,11 +37,11 @@ namespace jl
         connection_->Close();
     }
 
-    void PbClient::OnResponse(const ConnectionPtr &conn, asio::streambuf &buffer, size_t bytes_transfered)
+    void PbClient::OnResponse(const ConnectionPtr &conn, const std::string& resp_str)
     {
         if (state_ == PbClientState::kReadTotalLen)
         {
-            if (bytes_transfered != kTotalLenSize)
+            if (resp_str.size() != kTotalLenSize)
             {
                 // log
                 assert(false);
@@ -48,14 +49,13 @@ namespace jl
                 return;
             }
             std::size_t req_len = 0;
-            std::istream is(&buffer);
-            is.read(reinterpret_cast<char *>(&req_len), kTotalLenSize);
+            memcpy(&req_len, resp_str.c_str(),kTotalLenSize);
             connection_->ReadLen(req_len - kTotalLenSize);
             state_ = PbClientState::kReadRequest;
         }
         else if (state_ == PbClientState::kReadRequest)
         {
-            ResponsePtr resp_ptr = GetPbCoder().DecodeResponse(buffer, bytes_transfered);
+            ResponsePtr resp_ptr = GetPbCoder().DecodeResponse(resp_str);
             read_callback_(shared_from_this(), resp_ptr);
             state_ = PbClientState::kReadTotalLen;
         }

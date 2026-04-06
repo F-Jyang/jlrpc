@@ -14,14 +14,16 @@
 namespace jl
 {
 
-    constexpr int32_t kMaxRequestSize = 4 * 1024;
-    constexpr int32_t kMaxResponseSize = 4 * 1024;
-
+    
     class Request;
     class Response;
-
+    
     using RequestPtr = std::shared_ptr<Request>;
     using ResponsePtr = std::shared_ptr<Response>;
+    
+    constexpr int32_t kMaxRequestSize = 4 * 1024;
+    constexpr int32_t kMaxResponseSize = 4 * 1024;
+    
 
     struct Request
     {
@@ -46,15 +48,7 @@ namespace jl
 
         int32_t GetSize() const;
 
-        // /// @brief 将被序列化为string的requst重写解序列化为request
-        // /// @param req_str
-        // /// @return
-        // bool ParseFromString(const std::string &req_str);
-
-        // std::string SerializeToString();
-
     private:
-        // min_size is 16Bytes
 
         // int32_t msg_id_len_;            // 消息id长度
         // int32_t service_full_name_len_; // 服务全名长度
@@ -83,11 +77,7 @@ namespace jl
 
         void SetErrorCode(NetErrorCode ec);
 
-        int32_t GetErrorCode() const;
-
-        // bool ParseFromString(const std::string &req_str);
-
-        // std::string SerializeToString();
+        NetErrorCode GetErrorCode() const;
 
     private:
         // int32_t msg_id_len_;  // 消息id长度

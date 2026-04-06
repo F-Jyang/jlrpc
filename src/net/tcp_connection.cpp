@@ -91,52 +91,6 @@ namespace jl
         }
     }
 
-    // void TcpConnection::ReadRequestLen()
-    // {
-    //     bool expected = false;
-    //     if (is_reading_.compare_exchange_strong(expected, true))
-    //     {
-    //         auto self = shared_from_this();
-    //         asio::async_read(
-    //             this->socket_,
-    //             read_buffer_,
-    //             asio::transfer_exactly(kTotalLenSize),
-    //             [self](const std::error_code &ec, std::size_t bytes_transferred)
-    //             {
-    //                 if (ec)
-    //                 {
-    //                     self->HandleError(ec);
-    //                     return;
-    //                 }
-
-    //                 if (self->state_ != ConnectionState::kClosed)
-    //                 {
-    //                     std::istream is(&self->read_buffer_);
-    //                     int32_t len;
-    //                     is.read((char *)(&len), bytes_transferred); // 暂时不做大小端处理
-    //                     self->ReadRequest(len);
-    //                 }
-    //             });
-    //     }
-    // }
-
-    // void TcpConnection::ReadRequest(std::size_t req_len)
-    // {
-    //     auto self = shared_from_this();
-    //     asio::async_read(
-    //         this->socket_,
-    //         read_buffer_,
-    //         asio::transfer_exactly(req_len),
-    //         [self](const std::error_code &ec, std::size_t bytes_transferred)
-    //         {
-    //             if (self->state_ != ConnectionState::kClosed)
-    //             {
-    //                 self->OnRead(ec, bytes_transferred);
-    //                 bool expected = true;
-    //                 self->is_reading_.compare_exchange_strong(expected, false);
-    //             }
-    //         });
-    // }
 
     TcpConnection::~TcpConnection()
     {
@@ -149,11 +103,14 @@ namespace jl
         {
             if (read_callback_)
             {
-                read_callback_(shared_from_this(), read_buffer_, bytes_transferred);
+                std::string read_str(bytes_transferred,'\0');
+                std::istream is(&read_buffer_);
+                is.read(read_str.data(),bytes_transferred);
+                read_callback_(shared_from_this(), read_str);
             }
             else
             {
-                // rpc failed, handle no callback set，send error code
+                // TODO: rpc failed, handle no callback set，send error code
 
                 // define a global func ???
                 // OnNoReadCallback(req_opt.value());
@@ -164,7 +121,7 @@ namespace jl
             if (ec != asio::error::eof)
             {
                 std::error_code ignore;
-                // LOG_DEBUG << std::to_string(id_) << "Recv read error: " << ec.message();
+                LOG_DEBUG << "Error: " << ignore.message();
             }
             Close();
         }

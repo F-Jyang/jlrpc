@@ -15,7 +15,7 @@ namespace jl
     class TcpConnection;
     using ConnectionPtr = std::shared_ptr<TcpConnection>;
 
-    using ReadCallback = std::function<void(const ConnectionPtr &, asio::streambuf &, size_t)>;
+    using ReadCallback = std::function<void(const ConnectionPtr &, const std::string&)>;  // TODO: read callback 返回string，返回streambuf可能会有streambuf的数据没有consume的问题
     using WriteCallback = std::function<void(const ConnectionPtr &, std::size_t bytes_transferred)>;
     using CloseCallback = std::function<void(const ConnectionPtr &)>;
 
@@ -54,7 +54,7 @@ namespace jl
         /// @param n
         void ReadLen(std::size_t n);
 
-        /// @brief 读取数据
+        /// @brief 读取指定结束符。如果字节数超过max_buffer_size还没有读取到end，会直接返回
         /// @param end
         void ReadUtil(const std::string &end);
 
@@ -66,16 +66,6 @@ namespace jl
         void Close();
 
         ConnectionInfo GetConnectionInfo() const;
-
-        // std::chrono::steady_clock::time_point GetTimeout() const
-        // {
-        //     return timeout_point_;
-        // }
-
-        // void SetTimeout(const std::chrono::steady_clock::time_point& timeout_point)
-        // {
-        //     timeout_point_ = timeout_point;
-        // }
 
         void SetReadCallback(const ReadCallback &callback)
         {
@@ -95,12 +85,6 @@ namespace jl
         ~TcpConnection();
 
     private:
-        /// @brief 读取4B的request_len
-        // void ReadRequestLen();
-
-        /// @brief 读取指定长度的request
-        /// @param req_size 指定长度
-        // void ReadRequest(std::size_t req_len);
 
         void OnRead(const std::error_code &ec, size_t bytes_transferred);
 

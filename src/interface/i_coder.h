@@ -26,9 +26,9 @@ namespace jl
         /// @brief 解码请求。成功返回Request，失败返回nullptr
         /// @param buffer
         /// @return
-        RequestPtr DecodeRequest(asio::streambuf &buffer, std::size_t bytes_transfered) 
+        RequestPtr DecodeRequest(const std::string& req_str) 
         {
-            return impl_.DecodeRequest(buffer, bytes_transfered);
+            return impl_.DecodeRequest(req_str);
         }
 
         /// @brief 编码响应。将request转换为string用于发送
@@ -42,9 +42,9 @@ namespace jl
         /// @brief 解码响应。成功返回Response，失败返回nullptr
         /// @param buffer
         /// @return
-        ResponsePtr DecodeResponse(asio::streambuf &buffer, std::size_t bytes_transfered)
+        ResponsePtr DecodeResponse(const std::string& resp_str)
         {
-            return impl_.DecodeResponse(buffer, bytes_transfered);
+            return impl_.DecodeResponse(resp_str);
         }
     private:
         CodeImpl impl_;

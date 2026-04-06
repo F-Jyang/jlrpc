@@ -3,6 +3,7 @@
 #include <net/tcp_connection.h>
 #include <net/pb/pb_coder.h>
 #include <utils/easy_log.hpp>
+#include <asio/steady_timer.hpp>
 
 namespace jl
 {
@@ -55,14 +56,14 @@ namespace jl
             read_callback_ = callback;
             std::weak_ptr<PbClient> weak = shared_from_this();
             connection_->SetReadCallback(
-                [weak](const ConnectionPtr &conn, asio::streambuf &buffer, size_t bytes_transfered)
+                [weak](const ConnectionPtr &conn, const std::string& resp_str)
                 {
                     auto self = weak.lock();
                     if (!self)
                     {
                         return;
                     }
-                    self->OnResponse(conn, buffer, bytes_transfered);
+                    self->OnResponse(conn, resp_str);
                 });
         }
 
@@ -83,16 +84,17 @@ namespace jl
         }
 
     private:
-        void OnResponse(const ConnectionPtr &conn, asio::streambuf &buffer, size_t bytes_transfered);
+        void OnResponse(const ConnectionPtr &conn, const std::string& resp_str);
 
         void OnRequest(const ConnectionPtr &conn, std::size_t bytes_transferred);
 
     private:
         PbClientState state_;
+        ConnectionPtr connection_;
         ClientRequestCallabck write_callback_;
         ClientResponseCallabck read_callback_;
         ClientCloseCallabck close_callback_;
         asio::streambuf read_buffer_;
-        ConnectionPtr connection_;
+        asio::steady_timer timer_;
     };
 }

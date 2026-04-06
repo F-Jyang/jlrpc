@@ -17,7 +17,7 @@ namespace jl
         /// @brief 解码请求。将request_string解码为Request，失败返回nullptr
         /// @param buffer
         /// @return
-        RequestPtr DecodeRequest(asio::streambuf &buffer, std::size_t bytes_transfered);
+        RequestPtr DecodeRequest(const std::string& req_str);
 
         /// @brief 编码响应。将response转换为total_len+response_string用于发送
         /// @param response
@@ -27,7 +27,7 @@ namespace jl
         /// @brief 解码响应。将response_string解码为Response，失败返回nullptr
         /// @param buffer
         /// @return
-        ResponsePtr DecodeResponse(asio::streambuf &buffer, std::size_t bytes_transfered);
+        ResponsePtr DecodeResponse(const std::string& resp_str);
     };
 
     Coder<PbCoder>& GetPbCoder();

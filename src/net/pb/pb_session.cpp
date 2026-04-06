@@ -5,7 +5,7 @@ namespace jl
 {
     PbSession::PbSession(net::tcp::socket &&socket)
         : connection_(std::make_shared<TcpConnection>(std::move(socket))),
-        state_(PbSessionState::kReadTotalLen)
+          state_(PbSessionState::kReadTotalLen)
     {
         LOG_DEBUG << "New tcpConnection";
         ConnectionInfo info = connection_->GetConnectionInfo();
@@ -30,7 +30,7 @@ namespace jl
         request_callback_ = callback;
         std::weak_ptr<PbSession> weak = shared_from_this();
         connection_->SetReadCallback(
-            [weak](const ConnectionPtr &conn, asio::streambuf &buffer, size_t bytes_transfered)
+            [weak](const ConnectionPtr &conn, const std::string &read_str)
             {
                 PbSessionPtr self = weak.lock();
                 if (!self)
@@ -38,7 +38,7 @@ namespace jl
                 // self->OnRequest(conn, buffer, bytes_transfered);
                 if (self->state_ == PbSessionState::kReadTotalLen)
                 {
-                    if (bytes_transfered != kTotalLenSize)
+                    if (read_str.size() != kTotalLenSize)
                     {
                         // log
                         assert(false);
@@ -46,14 +46,13 @@ namespace jl
                         return;
                     }
                     std::size_t req_len = 0;
-                    std::istream is(&buffer);
-                    is.read(reinterpret_cast<char *>(&req_len), kTotalLenSize);
+                    memcpy(&req_len, read_str.c_str(), kTotalLenSize);
                     self->connection_->ReadLen(req_len - kTotalLenSize);
                     self->state_ = PbSessionState::kReadRequest;
                 }
                 else if (self->state_ == PbSessionState::kReadRequest)
                 {
-                    RequestPtr req_ptr = GetPbCoder().DecodeRequest(buffer, bytes_transfered);
+                    RequestPtr req_ptr = GetPbCoder().DecodeRequest(read_str);
                     self->request_callback_(self, req_ptr);
                     self->state_ = PbSessionState::kReadTotalLen;
                 }
@@ -121,11 +120,11 @@ namespace jl
         LOG_DEBUG << "Session close";
     }
 
-    void PbSession::OnRequest(const ConnectionPtr &conn, asio::streambuf &buffer, size_t bytes_transfered)
+    void PbSession::OnRequest(const ConnectionPtr &conn, const std::string &req_str)
     {
         if (state_ == PbSessionState::kReadTotalLen)
         {
-            if (bytes_transfered != kTotalLenSize)
+            if (req_str.size() != kTotalLenSize)
             {
                 // log
                 assert(false);
@@ -133,13 +132,13 @@ namespace jl
                 return;
             }
             std::size_t req_len = 0;
-            std::istream is(&buffer);
-            is.read(reinterpret_cast<char *>(&req_len), kTotalLenSize);
-            connection_->ReadLen(req_len);
+            memcpy(&req_len, req_str.c_str(), kTotalLenSize);
+            connection_->ReadLen(req_len - kTotalLenSize);
+            state_ = PbSessionState::kReadRequest;
         }
         else if (state_ == PbSessionState::kReadRequest)
         {
-            RequestPtr req_ptr = GetPbCoder().DecodeRequest(buffer, bytes_transfered);
+            RequestPtr req_ptr = GetPbCoder().DecodeRequest(req_str);
             request_callback_(shared_from_this(), req_ptr);
         }
         else

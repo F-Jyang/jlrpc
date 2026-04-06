@@ -1,6 +1,8 @@
 
 set(SRCS
     "./main.cpp"
+    "./query_service_impl.h"
+    "./query_service_impl.cpp"
 )
 
 add_executable(pbclient_demo ${SRCS})
