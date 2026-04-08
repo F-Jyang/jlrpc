@@ -11,6 +11,26 @@
 
 namespace jl
 {
+    class ISession;
+    using SessionPtr = std::shared_ptr<ISession>;
+    using SessionWeak = std::weak_ptr<ISession>;
+
+    class ISession
+    {
+    public:
+		virtual void Start() = 0;
+
+		virtual std::size_t GetId() const = 0;
+
+        virtual void WriteResponse(const ResponsePtr& response) = 0;
+
+		virtual  void SetTimeout(std::size_t timeout) = 0;
+
+		virtual std::size_t GetTimeout() const = 0;
+
+		virtual void Close() = 0;
+
+    };
 
     // class ISession;
 

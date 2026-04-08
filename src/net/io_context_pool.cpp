@@ -1,4 +1,5 @@
 #include "io_context_pool.h"
+#include <net/timer_wheel.h>
 
 namespace jl
 {
@@ -40,6 +41,9 @@ namespace jl
             threads_.emplace_back(
                 [this, i]()
                 {
+                    IoContextPtr ioct = ioct_pool_[i];
+                    ioct_map_.emplace(std::pair{std::this_thread::get_id(), ioct});
+                    GetTimerWheel(*ioct)->Start();
                     ioct_pool_[i]->run();
                 });
         }

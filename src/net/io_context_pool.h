@@ -27,6 +27,7 @@ namespace jl
         IoContextPool &operator=(IoContextPool &&) = delete;
 
     private:
+        std::unordered_map<std::thread::id,IoContextPtr> ioct_map_;
         std::vector<IoContextPtr> ioct_pool_;
         std::vector<IoContextWork> work_pool_;
         std::vector<std::thread> threads_;
