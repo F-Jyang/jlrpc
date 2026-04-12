@@ -7,7 +7,7 @@ namespace jl
         : connection_(std::make_shared<TcpConnection>(std::move(socket))),
           state_(PbSessionState::kReadTotalLen)
     {
-        LOG_DEBUG << "New tcpConnection";
+        // LOG_DEBUG << "New tcpConnection";
         ConnectionInfo info = connection_->GetConnectionInfo();
         session_id_ = info.hash();
         // std::stringstream oss;
@@ -15,14 +15,24 @@ namespace jl
         // id_ = std::hash<std::string>{}(oss.str());
     }
 
+    PbSession::PbSession(const ConnectionPtr& conn)
+        :connection_(conn), 
+        state_(PbSessionState::kReadTotalLen)
+    {
+        // LOG_DEBUG << "New tcpConnection";
+        ConnectionInfo info = connection_->GetConnectionInfo();
+        session_id_ = info.hash();
+    }
+
     void PbSession::Start()
     {
+        start_ = std::chrono::steady_clock::now();
         connection_->ReadLen(kTotalLenSize);
     }
 
     std::size_t PbSession::GetId() const
     {
-        return std::size_t();
+        return session_id_;
     }
 
     void PbSession::SetRequestCallback(const PbRequestCallback &callback)
@@ -100,14 +110,9 @@ namespace jl
             });
     }
 
-    std::size_t PbSession::GetTimeout() const
+    const asio::any_io_executor& PbSession::GetIoExecutor()
     {
-        return timeout_;
-    }
-
-    void PbSession::SetTimeout(std::size_t timeout)
-    {
-        timeout_ = timeout;
+        return connection_->GetIoExecutor();
     }
 
     void PbSession::Close()
@@ -117,7 +122,9 @@ namespace jl
 
     PbSession::~PbSession()
     {
-        LOG_DEBUG << "Session close";
+        auto now = std::chrono::steady_clock::now();
+        int live_sec = std::chrono::duration_cast<std::chrono::seconds>(now - start_).count();
+        LOG_DEBUG << "Session live: " << std::to_string(live_sec);
     }
 
     void PbSession::OnRequest(const ConnectionPtr &conn, const std::string &req_str)

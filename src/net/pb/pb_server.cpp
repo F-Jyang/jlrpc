@@ -4,17 +4,36 @@
 
 namespace jl
 {
-    PbServer::PbServer(asio::io_context &main_ioct, const std::string &ip, unsigned short port, std::size_t thread_size) : tcp_server_(std::make_unique<Server>(main_ioct, ip, port, thread_size)),
-                                                                                                                           dispatcher_(std::make_unique<PbRpcDispatcher>())
+    PbServer::PbServer(asio::io_context& main_ioct, const std::string& ip, unsigned short port, std::size_t thread_size)
+        : tcp_server_(std::make_unique<Server>(main_ioct, ip, port, thread_size)),
+        dispatcher_(std::make_unique<PbRpcDispatcher>()),
+        timer_wheel_(std::make_unique<TimerWheel>(main_ioct))
     {
         tcp_server_->SetConnEstablishCallback(
             [&](net::tcp::socket &&socket)
             {
-                PbSessionPtr session_ptr = std::make_shared<PbSession>(std::move(socket));
+                ConnectionPtr conn = std::make_shared<TcpConnection>(std::move(socket), kDefaultBufferSize);
+                PbSessionPtr session_ptr = std::make_shared<PbSession>(conn);
+                session_ptr->SetTimeout(30);
+                TimerEventPtr event_ptr = std::make_shared<TimerEvent>(
+                    session_ptr,
+                    [session_weak = session_ptr->weak_from_this()]()
+                    {
+                        LOG_DEBUG << "OnSession timeout event";
+                        SessionPtr session_ptr = session_weak.lock();
+                        if (session_ptr)
+                        {
+							LOG_DEBUG << "Session timeout close";
+                            session_ptr->Close();
+                        }
+                    });
+                TimerEventWeak event_weak(event_ptr);
+                session_ptr->SetContext(TimerEventWeak(event_ptr));
+                timer_wheel_->AddTimerEvent(event_ptr);
                 std::size_t session_id = session_ptr->GetId();
                 LOG_DEBUG << "Accept new session: " << std::to_string(session_id);
                 session_ptr->SetRequestCallback(
-                    [&](const PbSessionPtr &session, const RequestPtr &request)
+                    [&](const PbSessionPtr& session, const RequestPtr& request)
                     {
                         this->OnSessionRead(session, request);
                     });
@@ -46,6 +65,7 @@ namespace jl
 
     void PbServer::Start()
     {
+        timer_wheel_->Start();
         tcp_server_->Start();
     }
 
@@ -79,7 +99,13 @@ namespace jl
         if (resp_ptr->GetMsgId() == "HEARTBEAT")
         {
             // TODO：refresh timeout
-            session->SetTimeout(111);
+            TimerEventWeak event_weak = std::any_cast<TimerEventWeak>(session->GetContext());
+            TimerEventPtr event_ptr = event_weak.lock();
+            if (event_ptr)
+            {
+                event_ptr->RefreshTimeout(30);
+                timer_wheel_->AddTimerEvent(event_ptr);
+            }
         }
         session->WriteResponse(resp_ptr);
         session->Start();
@@ -88,6 +114,6 @@ namespace jl
     void PbServer::OnSessionWrite(const PbSessionPtr &session, std::size_t bytes_transferred)
     {
         assert(session);
-        LOG_DEBUG << "Session write " << std::to_string(bytes_transferred);
+        // LOG_DEBUG << "Session write " << std::to_string(bytes_transferred);
     }
 }

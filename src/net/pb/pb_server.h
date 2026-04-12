@@ -1,5 +1,6 @@
 #pragma once
 
+#include <net/timer_wheel.h>
 #include <net/tcp_server.h>
 #include <net/pb/pb_coder.h>
 #include <net/pb/pb_session.h>
@@ -30,6 +31,7 @@ namespace jl
         void OnSessionWrite(const PbSessionPtr &session, std::size_t bytes_transferred);
 
     private:
+        std::unique_ptr<TimerWheel> timer_wheel_;
         std::unique_ptr<asio::steady_timer> timer_;
         std::unique_ptr<Server> tcp_server_;
         std::unique_ptr<PbRpcDispatcher> dispatcher_;

@@ -51,7 +51,7 @@ namespace jl
             }
             std::stringstream oss;
             oss << "[" << level_str << "] " << func_name << ": " << msg << "\n";
-            std::cout << oss.str();
+            printf("%s", oss.str().c_str());
         }
 
     private:

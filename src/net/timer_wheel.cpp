@@ -6,12 +6,7 @@ namespace jl
 
 	thread_local std::shared_ptr<TimerWheel> timer_wheel{nullptr};
 
-	uint64_t GetCurrTime()
-	{
-		return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
-	}
-
-	std::shared_ptr<TimerWheel> GetTimerWheel(asio::io_context& ioct)
+	std::shared_ptr<TimerWheel> GetTimerWheel(asio::io_context &ioct)
 	{
 		if (!timer_wheel)
 		{
@@ -21,79 +16,102 @@ namespace jl
 	}
 
 	TimerWheel::TimerWheel(asio::io_context &ioct)
-		: ticks_(0),
-		  timer_(ioct)
+		: timer_(ioct),
+		  interval_(1)
 	{
 		LOG_DEBUG << "TimerWheel: " << std::to_string(std::intptr_t(this));
 		wheel_idx_.push_back(0);
 		wheel_idx_.push_back(0);
 		wheel_idx_.push_back(0);
-		wheel_size_.push_back(60);
-		wheel_size_.push_back(60);
-		wheel_size_.push_back(24);
-		wheels_.emplace_back(Wheel(wheel_size_[0]));
-		wheels_.emplace_back(Wheel(wheel_size_[1]));
-		wheels_.emplace_back(Wheel(wheel_size_[2]));
+		wheels_.emplace_back(Wheel(60));
+		wheels_.emplace_back(Wheel(60));
+		wheels_.emplace_back(Wheel(24));
+		interval_ = 1;
 	}
 
-	void TimerWheel::AddSessionSafe(const SessionPtr &session)
+	void TimerWheel::AddTimerEvent(const TimerEventPtr &event_ptr)
 	{
 		std::lock_guard<std::mutex> lock(mutex_);
-		AddSession(session);
+		AddTimerEventUnSafe(event_ptr);
 	}
 
-	void TimerWheel::AddSession(const SessionPtr &session)
+	void TimerWheel::AddTimerEventUnSafe(const TimerEventPtr &event_ptr)
 	{
-		if (session->GetTimeout() > kMaxTimeoutSec)
+		uint64_t curr_time = GetCurrTimeSec();
+		int interval = event_ptr->arrive_time - curr_time;
+		if (interval <= 0) // 立即过期
+			return;
+		// LOG_DEBUG << "Interval: "  << std::to_string(interval);
+		int wheel_idx = 0, slot_idx = interval + wheel_idx_[0];
+		// TODO: 修改AddTimerEvent的边界条件
+		for (int i = 0; i < wheels_.size(); ++i)
 		{
-			session->SetTimeout(kMaxTimeoutSec);
-		}
-		uint64_t timeout = session->GetTimeout() + wheel_idx_[0];
-		int wheel_idx = 0, slot_idx = timeout;
-		for (int i = 0; i < wheel_size_.size(); ++i)
-		{
-			slot_idx = timeout;
-			timeout /= wheel_size_[i];
-			if (timeout == 0)
+			slot_idx = interval + wheel_idx_[i];
+			interval = (interval + wheel_idx_[i]) / wheels_[i].size();
+			if (interval == 0)
 			{
 				wheel_idx = i;
 				break;
 			}
 		}
-		wheels_[wheel_idx][slot_idx].push(session);
+		wheels_[wheel_idx][slot_idx].push(event_ptr);
+	}
+
+	void TimerWheel::ResetTimerEvent(const TimerEventPtr &event_ptr)
+	{
+		AddTimerEvent(event_ptr);
 	}
 
 	void TimerWheel::Start()
 	{
+		timer_.expires_after(std::chrono::seconds(interval_));
+		timer_.async_wait(
+			[&](const std::error_code &ec)
+			{
+				if (ec && ec != asio::error::operation_aborted)
+				{
+					LOG_DEBUG << ec.message();
+				}
+				Tick();
+				Start();
+			});
 	}
 
 	void TimerWheel::Tick()
 	{
-		++ticks_;
-		// TODO: 遍历当前的 wheel_idx_[0] 中的 slot
-		for (int i = 1; i < wheel_size_.size(); ++i)
+		uint64_t now = GetCurrTimeSec();
+		std::size_t wheels_size = wheels_.size();
+		std::vector<Slot> del_slots(wheels_size);
 		{
-			if (wheel_idx_[i - 1] == wheel_size_[i - 1])
+			std::lock_guard<std::mutex> lock(mutex_);
+			++wheel_idx_[0]; // 前进一个slot
+			del_slots[0].swap(wheels_[0][wheel_idx_[0]  % wheels_[0].size()]);
+			for (int i = 1; i < wheels_size && wheel_idx_[i - 1] == wheels_[i - 1].size(); ++i)
 			{
-				wheel_idx_[i - 1] = 0;
-				// TODO: 将读取 wheel_idx_[i] 对应的 slot 拿出来放到上一层的 wheel 里面
-				++wheel_idx_[i];
+				wheel_idx_[i - 1] = 0; // 上一个时间轮回到第一个slot
+				++wheel_idx_[i]; // 拿出当前时间轮的slot，需要注意索引不能越界
+				del_slots[i].swap(wheels_[i][wheel_idx_[i] % wheels_[i].size()]);
+				// 将当前时间轮即将超时的TimerEvent下放到上一个时间轮中
+				while (!del_slots[i].empty())
+				{
+					AddTimerEventUnSafe(del_slots[i].front());
+					del_slots[i].pop();
+				}
 			}
+			if (wheel_idx_.back() == wheels_.back().size())
+				wheel_idx_.back() = 0;
+			// ++ticks_;
 		}
-		if (wheel_idx_.back() == wheel_size_.back())
-			wheel_idx_.back() = 0;
+		// del_slots中的元素析构，执行callback，避免加锁。
 	}
 
 	void TimerWheel::Cancel()
 	{
+		timer_.cancel();
 	}
 
-	void TimerWheel::Loop()
-	{
-	}
-    
 	TimerWheel::~TimerWheel()
-    {
+	{
 		LOG_DEBUG << "~TimerWheel";
-    }
+	}
 }

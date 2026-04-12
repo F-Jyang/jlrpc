@@ -67,6 +67,8 @@ namespace jl
 
         ConnectionInfo GetConnectionInfo() const;
 
+        const asio::any_io_executor& GetIoExecutor();
+
         void SetReadCallback(const ReadCallback &callback)
         {
             read_callback_ = callback;

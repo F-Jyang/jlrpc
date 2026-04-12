@@ -8,14 +8,26 @@ jl::Acceptor::Acceptor(asio::io_context &ioct, const std::string &ip, unsigned s
 {
     LOG_DEBUG << "jlrpc listen on " << ip << ":" << std::to_string(port);
     net::tcp::endpoint endpoint(asio::ip::make_address(ip), port);
-    // std::error_code ec;
-    acceptor_.open(endpoint.protocol());
-    // allow address reuse
-    acceptor_.set_option(asio::socket_base::reuse_address(true));
-    // bind to server address
-    acceptor_.bind(endpoint);
-    // start listen for connection
-    acceptor_.listen(asio::socket_base::max_listen_connections);
+    try
+    {
+        acceptor_.open(endpoint.protocol());
+	    // allow address reuse
+        acceptor_.set_option(asio::socket_base::reuse_address(true));
+	    // bind to server address
+        acceptor_.bind(endpoint);
+        // start listen for connection
+        acceptor_.listen(asio::socket_base::max_listen_connections);
+    }
+    catch (const std::exception& error)
+    {
+        LOG_DEBUG << error.what();
+        std::terminate();
+    }
+    catch (...)
+    {
+        LOG_DEBUG << "Unknown error.";
+        std::terminate();
+    }
     // LOG_WARN("Acceptor listen on {}:{}", endpoint.address().to_string(), endpoint.port());
 }
 

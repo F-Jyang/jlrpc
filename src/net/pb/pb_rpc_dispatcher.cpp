@@ -2,6 +2,7 @@
 #include <net/pb/pb_rpc_closure.h>
 #include <net/pb/pb_rpc_controller.h>
 #include <google/protobuf/message.h>
+#include <utils/easy_log.hpp>
 
 namespace jl
 {
@@ -27,6 +28,7 @@ namespace jl
         resp_ptr->SetMsgId(msg_id);
         if(msg_id == "HEARTBEAT") // heartbeat
         {
+            LOG_DEBUG << "send pong";
             resp_ptr->SetResult("PONG");
             return resp_ptr;
         }

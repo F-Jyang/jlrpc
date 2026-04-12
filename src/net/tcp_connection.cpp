@@ -1,7 +1,5 @@
 #include "tcp_connection.h"
 
-#include <utils/easy_log.hpp>
-#include <utils/easy_log.hpp>
 #include <asio/read.hpp>
 #include <asio/read_until.hpp>
 #include <asio/write.hpp>
@@ -15,7 +13,6 @@ namespace jl
           state_(ConnectionState::kActived),
           is_reading_(false)
     {
-        LOG_DEBUG << "New tcpConnection";
     }
 
     bool TcpConnection::Connect(const std::string &ip, unsigned short port)
@@ -26,7 +23,6 @@ namespace jl
         auto iter = asio::connect(socket_, resolve_result.begin(), resolve_result.end(), ec);
         if (ec)
         {
-            LOG_DEBUG << ec.message();
             return false;
         }
         return iter != resolve_result.end();
@@ -89,14 +85,12 @@ namespace jl
 
     TcpConnection::~TcpConnection()
     {
-        LOG_DEBUG << "Connection close";
     }
 
     void TcpConnection::OnRead(const std::error_code &ec, size_t bytes_transferred)
     {
         if (!ec)
         {
-            LOG_DEBUG << "TcpConnection read len: " << std::to_string(bytes_transferred);
             if (read_callback_)
             {
                 std::string read_str(bytes_transferred,'\0');
@@ -117,7 +111,6 @@ namespace jl
             if (ec != asio::error::eof)
             {
                 std::error_code ignore;
-                LOG_DEBUG << "Error: " << ignore.message();
             }
             Close();
         }
@@ -214,6 +207,11 @@ namespace jl
         info.local_port = socket_.local_endpoint().port();
         info.protocol = "TCP";
         return info;
+    }
+
+    const asio::any_io_executor& TcpConnection::GetIoExecutor()
+    {
+        return socket_.get_executor();
     }
 
     void TcpConnection::HandleError(const std::error_code &ec)

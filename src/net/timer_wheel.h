@@ -5,6 +5,8 @@
 #pragma once
 #include <interface/i_session.h>
 #include <asio/steady_timer.hpp>
+#include <asio/post.hpp>
+#include <utils/time.hpp>
 #include <queue>
 #include <memory>
 #include <mutex>
@@ -14,11 +16,13 @@ namespace jl
 {
 
     constexpr std::size_t kMaxTimeoutSec = 60 * 60 * 24; // 暂时支持最长一天的超时
-    
+
+    class TimerEvent;
+    using TimerEventPtr = std::shared_ptr<TimerEvent>;
+    using TimerEventWeak = std::weak_ptr<TimerEvent>;
+
     class TimerWheel;
     std::shared_ptr<TimerWheel> GetTimerWheel(asio::io_context& ioct);
-
-    uint64_t GetCurrTime();
 
     struct TimePos
     {
@@ -51,31 +55,55 @@ namespace jl
 
     struct TimerEvent
     {
-        TimerEvent(const SessionPtr &session)
-            : session(session),
-              timeout_cnt(3),
-              timeout_pos(session->GetTimeout())
+        TimerEvent(const SessionPtr &session_ptr, const std::function<void()>& cb)
+            : session(session_ptr),
+            callback(cb),
+            arrive_time(0)
         {
+            int timeout = kMaxTimeoutSec;
+			if (session_ptr->GetTimeout() < kMaxTimeoutSec)
+			{
+                timeout = session_ptr->GetTimeout();
+			}
+            arrive_time = GetCurrTimeSec() + timeout;
         }
 
-        TimePos timeout_pos;             // 超时时间
-        int32_t timeout_cnt;             // 超时次数
-        std::weak_ptr<ISession> session; // session的weak指针
+        void RefreshTimeout(uint64_t timeout)
+        {
+            arrive_time = GetCurrTimeSec() + timeout;
+        }
+
+        ~TimerEvent()
+        {
+            if (callback)
+            {
+		        callback();
+            }
+		}
+
+        uint64_t arrive_time;            // 超时时间
+        SessionWeak session;
+        std::function<void()> callback;
+        
     };
 
     /// @brief 可以实现一个三层的时间轮，支持s、min、h
     /// @desc 目前的TimerWheel是线程不安全的
     class TimerWheel
     {
-        using Slot = std::queue<TimerEvent>;
+        using Slot = std::queue<TimerEventPtr>;
         using Wheel = std::vector<Slot>;
 
     public:
         TimerWheel(asio::io_context& ioct);
 
-        void AddSessionSafe(const SessionPtr &session);
+        // void AddTimerEventSafe(const TimerEventPtr& event_ptr);
 
-        void AddSession(const SessionPtr &session);
+        void AddTimerEvent(const TimerEventPtr& event_ptr);
+
+        void AddTimerEventUnSafe(const TimerEventPtr& event_ptr);
+
+        void ResetTimerEvent(const TimerEventPtr& event_ptr);
 
         void Start();
 
@@ -83,16 +111,15 @@ namespace jl
 
         void Cancel();
 
-        void Loop();
-
         ~TimerWheel();
+
     private:
+        
+    private:
+        std::size_t interval_;
         std::mutex mutex_;
-        uint64_t ticks_;
         asio::steady_timer timer_;
-        std::vector<std::size_t> wheel_size_; // 每个wheel的size
         std::vector<Wheel> wheels_;           // wheel
         std::vector<int> wheel_idx_;          // 当前轮询的wheel的索引
-        std::function<void(const SessionPtr&)> callback_;
     };
 }

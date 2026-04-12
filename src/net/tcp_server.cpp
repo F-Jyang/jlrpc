@@ -4,11 +4,12 @@
 namespace jl
 {
 
-    Server::Server(asio::io_context &main_ioct, const std::string &ip, unsigned short port, std::size_t ioct_pool_size) : is_stop_(true),
-                                                                                                                          main_ioct_(main_ioct),
-                                                                                                                        //   ioct_pool_(ioct_pool_size),
-                                                                                                                          acceptor_(std::make_shared<Acceptor>(main_ioct, ip, port)),
-                                                                                                                          signals_(main_ioct)
+    Server::Server(asio::io_context& main_ioct, const std::string& ip, unsigned short port, std::size_t ioct_pool_size)
+        : is_stop_(true),
+        main_ioct_(main_ioct),
+        //   ioct_pool_(ioct_pool_size),
+        acceptor_(std::make_shared<Acceptor>(main_ioct, ip, port)),
+        signals_(main_ioct)
     {
         // // 1. 解除信号阻塞（防止继承的阻塞掩码）
         // sigset_t sigset;

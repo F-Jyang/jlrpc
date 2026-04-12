@@ -1,5 +1,6 @@
 #pragma once
 
+#include <interface/i_session.h>
 #include <net/tcp_connection.h>
 #include <net/net_data.h>
 #include <net/pb/pb_coder.h>
@@ -21,10 +22,12 @@ namespace jl
         kReadRequest,
     };
 
-    class PbSession : public std::enable_shared_from_this<PbSession>
+    class PbSession : public std::enable_shared_from_this<PbSession>, public ISession
     {
     public:
-        PbSession(net::tcp::socket &&socket);
+		PbSession(net::tcp::socket&& socket);
+		
+        PbSession(const ConnectionPtr& conn);
 
         void Start();
 
@@ -38,9 +41,7 @@ namespace jl
 
         void SetCloseCallback(const PbSessionCloseCallback& callback);
 
-        std::size_t GetTimeout() const;
-
-        void SetTimeout(std::size_t timeout);
+        const asio::any_io_executor& GetIoExecutor() override;
 
         /// @brief 关闭连接
         void Close();
@@ -54,12 +55,14 @@ namespace jl
         void OnResponse(const ConnectionPtr &conn, std::size_t bytes_transferred);
 
     private:
-        std::size_t timeout_;
         std::size_t session_id_;
         ConnectionPtr connection_;
         std::atomic<PbSessionState> state_;
         PbRequestCallback request_callback_;
         PbResponseCallback response_callback_;
         PbSessionCloseCallback close_callback_;
+
+        // for test
+        std::chrono::steady_clock::time_point start_;
     };
 }

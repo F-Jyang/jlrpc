@@ -43,7 +43,6 @@ namespace jl
                 {
                     IoContextPtr ioct = ioct_pool_[i];
                     ioct_map_.emplace(std::pair{std::this_thread::get_id(), ioct});
-                    GetTimerWheel(*ioct)->Start();
                     ioct_pool_[i]->run();
                 });
         }
