@@ -11,7 +11,7 @@ namespace jl
 
     class PbClient;
     using PbClientPtr = std::shared_ptr<PbClient>;
-    using ClientResponseCallabck = std::function<void(const PbClientPtr &, const ResponsePtr &)>;
+    using ClientResponseCallabck = std::function<void(const PbClientPtr &, const Response*)>;
     using ClientRequestCallabck = std::function<void(const PbClientPtr &, std::size_t)>;
     using ClientCloseCallabck = std::function<void(const PbClientPtr &)>;
 
@@ -28,7 +28,7 @@ namespace jl
 
         bool Connect(const std::string &ip, unsigned short port);
 
-        void SendRequest(const RequestPtr &req_ptr);
+        void SendRequest(const Request* req_ptr);
 
         void SendHeartBeat();
 

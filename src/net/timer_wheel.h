@@ -11,6 +11,7 @@
 #include <memory>
 #include <mutex>
 #include <functional>
+#include <set>
 
 namespace jl
 {
@@ -91,9 +92,17 @@ namespace jl
     /// @desc 目前的TimerWheel是线程不安全的
     class TimerWheel
     {
-        using Slot = std::queue<TimerEventPtr>;
-        using Wheel = std::vector<Slot>;
 
+        struct TimerEventCmp
+        {
+            bool operator()(const TimerEventPtr& p1, const TimerEventPtr& p2) const
+            {
+                return p1.get() < p2.get();
+            }
+        };
+
+        using Slot = std::set<TimerEventPtr,TimerEventCmp>;
+        using Wheel = std::vector<Slot>;
     public:
         TimerWheel(asio::io_context& ioct);
 

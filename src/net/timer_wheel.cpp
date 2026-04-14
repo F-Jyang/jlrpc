@@ -54,7 +54,7 @@ namespace jl
 				break;
 			}
 		}
-		wheels_[wheel_idx][slot_idx].push(event_ptr);
+		wheels_[wheel_idx][slot_idx].insert(event_ptr);
 	}
 
 	void TimerWheel::ResetTimerEvent(const TimerEventPtr &event_ptr)
@@ -92,10 +92,9 @@ namespace jl
 				++wheel_idx_[i]; // 拿出当前时间轮的slot，需要注意索引不能越界
 				del_slots[i].swap(wheels_[i][wheel_idx_[i] % wheels_[i].size()]);
 				// 将当前时间轮即将超时的TimerEvent下放到上一个时间轮中
-				while (!del_slots[i].empty())
+				for (auto it = del_slots[i].begin(); it != del_slots[i].end(); ++it)
 				{
-					AddTimerEventUnSafe(del_slots[i].front());
-					del_slots[i].pop();
+					AddTimerEventUnSafe(*it);
 				}
 			}
 			if (wheel_idx_.back() == wheels_.back().size())

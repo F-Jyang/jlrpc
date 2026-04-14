@@ -12,7 +12,7 @@ namespace jl
     class PbSession;
     using PbSessionPtr = std::shared_ptr<PbSession>;
 
-    using PbRequestCallback = std::function<void(const PbSessionPtr&, const RequestPtr &)>;
+    using PbRequestCallback = std::function<void(const PbSessionPtr&, const Request*)>;
     using PbResponseCallback = std::function<void(const PbSessionPtr&, std::size_t bytes_transferred)>;
     using PbSessionCloseCallback = std::function<void(const PbSessionPtr&)>;
 
@@ -33,7 +33,7 @@ namespace jl
 
         std::size_t GetId() const;
 
-        void WriteResponse(const ResponsePtr& response);
+        void WriteResponse(const Response* response);
         
         void SetRequestCallback(const PbRequestCallback &callback);
 

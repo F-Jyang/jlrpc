@@ -14,11 +14,11 @@ namespace jl
         }
     }
 
-    ResponsePtr PbRpcDispatcher::Dispatch(const RequestPtr &req_ptr)
+    Response* PbRpcDispatcher::Dispatch(const Request* req_ptr)
     {
         namespace Pb = google::protobuf;
 
-        ResponsePtr resp_ptr = std::make_shared<Response>("-1", "", NetErrorCode::kNoError);
+        Response* resp_ptr = new Response("-1", "", NetErrorCode::kNoError);
         if (!req_ptr)
         {
             resp_ptr->SetErrorCode(NetErrorCode::kInvaliadRequest);
@@ -47,7 +47,7 @@ namespace jl
             resp_ptr->SetErrorCode(NetErrorCode::kServiceNotFound);
             return resp_ptr;
         }
-        PbServicePtr service_ptr = service_pair->second;
+        const PbServicePtr& service_ptr = service_pair->second;
         if (!service_ptr)
         {
             // service unregister

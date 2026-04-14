@@ -18,7 +18,7 @@ namespace jl
         /// @brief 编码请求。将request转换为string用于发送
         /// @param request
         /// @return
-        std::string EncodeRequest(const RequestPtr &request)
+        std::string EncodeRequest(const Request* request)
         {
             return impl_.EncodeRequest(request);
         }
@@ -26,7 +26,7 @@ namespace jl
         /// @brief 解码请求。成功返回Request，失败返回nullptr
         /// @param buffer
         /// @return
-        RequestPtr DecodeRequest(const std::string& req_str) 
+        Request* DecodeRequest(const std::string& req_str)
         {
             return impl_.DecodeRequest(req_str);
         }
@@ -34,7 +34,7 @@ namespace jl
         /// @brief 编码响应。将request转换为string用于发送
         /// @param response
         /// @return
-        std::string EncodeResponse(const ResponsePtr &response) 
+        std::string EncodeResponse(const Response* response)
         {
             return impl_.EncodeResponse(response);
         }
@@ -42,7 +42,7 @@ namespace jl
         /// @brief 解码响应。成功返回Response，失败返回nullptr
         /// @param buffer
         /// @return
-        ResponsePtr DecodeResponse(const std::string& resp_str)
+        Response* DecodeResponse(const std::string& resp_str)
         {
             return impl_.DecodeResponse(resp_str);
         }

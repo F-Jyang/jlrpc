@@ -23,7 +23,7 @@ namespace jl
 
 		virtual std::size_t GetId() const = 0;
 
-        virtual void WriteResponse(const ResponsePtr& response) = 0;
+        virtual void WriteResponse(const Response* response) = 0;
 
         void SetTimeout(std::size_t timeout) {
             timeout_ = timeout;

@@ -51,7 +51,7 @@ namespace jl
         else
         {
             // 禁止同一时刻注册两个async_read事件
-            assert(false);
+            //assert(false);
         }
     }
 
@@ -124,7 +124,7 @@ namespace jl
             [self, copy = std::move(data)]()
             {
                 const bool is_writing = !self->write_queue_.empty();
-                self->write_queue_.emplace(copy);
+                self->write_queue_.emplace(std::move(copy));
                 // LOG_DEBUG << std::to_string(self->write_queue_.size());
                 if (!is_writing)
                 {

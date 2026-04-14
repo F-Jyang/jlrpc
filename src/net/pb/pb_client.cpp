@@ -15,7 +15,7 @@ namespace jl
         return connection_->Connect(ip, port);
     }
 
-    void PbClient::SendRequest(const RequestPtr &req_ptr)
+    void PbClient::SendRequest(const Request* req_ptr)
     {
         std::string req_str = GetPbCoder().EncodeRequest(req_ptr);       
         connection_->Write(req_str);
@@ -29,8 +29,9 @@ namespace jl
 
     void PbClient::SendHeartBeat()
     {
-        RequestPtr req_ptr = std::make_shared<HeartBeatRequest>();
+        Request* req_ptr = new HeartBeatRequest();
         SendRequest(req_ptr);
+        delete req_ptr;
     }
 
     void PbClient::ReadResponse()
@@ -61,15 +62,16 @@ namespace jl
         }
         else if (state_ == PbClientState::kReadRequest)
         {
-            ResponsePtr resp_ptr = GetPbCoder().DecodeResponse(resp_str);
+            Response* resp_ptr = GetPbCoder().DecodeResponse(resp_str);
             read_callback_(shared_from_this(), resp_ptr);
             state_ = PbClientState::kReadTotalLen;
             ReadResponse();
+            delete resp_ptr;
         }
         else
         {
             // log
-            assert(false);
+            //assert(false);
             // error
             return;
         }

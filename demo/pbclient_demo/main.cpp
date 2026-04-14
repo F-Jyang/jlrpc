@@ -18,7 +18,7 @@ int main()
                 jl::PbClientPtr client_ptr = std::make_shared<jl::PbClient>(ioct);
                 client_ptr->Connect("127.0.0.1", 9999);
                 client_ptr->SetResponseCallback(
-                    [](const jl::PbClientPtr& client, const jl::ResponsePtr& response)
+                    [](const jl::PbClientPtr& client, const jl::Response* response)
                     {
                         if (response->GetMsgId() == "HEARTBEAT")
                         {
@@ -42,6 +42,16 @@ int main()
                                 LOG_DEBUG << "parser faild!";
                             }
                         }
+                        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+						//client->SendHeartBeat();
+                        QueryReq req;
+                        req.set_id(123);
+                        req.set_req_no(234);
+                        std::string req_str = req.SerializeAsString();
+                        jl::Request* req_ptr = new jl::Request("query_service.QueryName", req_str);
+                        client->SendRequest(req_ptr);
+                        delete req_ptr;
+                        client->ReadResponse();
                     });
                 client_ptr->SetReqeustCallback(
                     [](const jl::PbClientPtr& client, std::size_t bytes_transefered)
@@ -50,13 +60,8 @@ int main()
                     });
 
                 client_ptr->SendHeartBeat();
-                QueryReq req;
-                req.set_id(123);
-                req.set_req_no(234);
-                std::string req_str = req.SerializeAsString();
-                jl::RequestPtr req_ptr = std::make_shared<jl::Request>("query_service.QueryName", req_str);
-                client_ptr->SendRequest(req_ptr);
-                client_ptr->ReadResponse();
+				client_ptr->ReadResponse();
+
                 ioct.run();
             }
         )

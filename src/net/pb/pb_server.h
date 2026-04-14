@@ -27,7 +27,7 @@ namespace jl
 
     private:
         void OnSessionClose(const PbSessionPtr &session);
-        void OnSessionRead(const PbSessionPtr &session, const RequestPtr &request);
+        void OnSessionRead(const PbSessionPtr &session, const Request* request);
         void OnSessionWrite(const PbSessionPtr &session, std::size_t bytes_transferred);
 
     private:

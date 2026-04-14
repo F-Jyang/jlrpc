@@ -6,7 +6,7 @@
 
 namespace jl
 {
-    std::string PbCoder::EncodeRequest(const RequestPtr &req_ptr)
+    std::string PbCoder::EncodeRequest(const Request* req_ptr)
     {
         if (!req_ptr)
         {
@@ -39,14 +39,14 @@ namespace jl
         return req_with_len;
     }
 
-    RequestPtr PbCoder::DecodeRequest(const std::string& req_str)
+    Request* PbCoder::DecodeRequest(const std::string& req_str)
     {
         if (req_str.size() < 3 * sizeof(int32_t) || req_str.size() > kMaxRequestSize)
         {
             // log
             return nullptr;
         }
-        auto req = std::make_shared<Request>();
+        auto req = new Request();
         int32_t msg_id_len = 0, param_len = 0, service_full_name_len = 0;
         int idx = 0;
         memcpy(&msg_id_len, req_str.data(), sizeof(int32_t));
@@ -68,7 +68,7 @@ namespace jl
         return req;
     }
 
-    std::string PbCoder::EncodeResponse(const ResponsePtr &resp_ptr)
+    std::string PbCoder::EncodeResponse(const Response* resp_ptr)
     {
         if (!resp_ptr)
         {
@@ -100,14 +100,14 @@ namespace jl
         return resp_with_len;
     }
 
-    ResponsePtr PbCoder::DecodeResponse(const std::string& resp_str)
+    Response* PbCoder::DecodeResponse(const std::string& resp_str)
     {
         if (resp_str.size() < 2 * sizeof(int32_t) || resp_str.size() > kMaxResponseSize)
         {
             // log
             return nullptr;
         }
-        auto resp = std::make_shared<Response>();
+        auto resp = new Response();
         int32_t msg_id_len = 0, result_len = 0;
         int idx = 0;
         memcpy(&msg_id_len, resp_str.data(), sizeof(int32_t));

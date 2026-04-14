@@ -14,7 +14,7 @@ namespace jl
     public:
         void RegisterService(const std::string &name, const PbServicePtr &service_ptr);
 
-        ResponsePtr Dispatch(const RequestPtr &req_ptr);
+        Response* Dispatch(const Request* req_ptr);
 
         void UnRegisterService(const std::string &name);
 

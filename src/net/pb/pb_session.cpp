@@ -19,6 +19,7 @@ namespace jl
         :connection_(conn), 
         state_(PbSessionState::kReadTotalLen)
     {
+		start_ = std::chrono::steady_clock::now();
         // LOG_DEBUG << "New tcpConnection";
         ConnectionInfo info = connection_->GetConnectionInfo();
         session_id_ = info.hash();
@@ -26,7 +27,6 @@ namespace jl
 
     void PbSession::Start()
     {
-        start_ = std::chrono::steady_clock::now();
         connection_->ReadLen(kTotalLenSize);
     }
 
@@ -62,9 +62,10 @@ namespace jl
                 }
                 else if (self->state_ == PbSessionState::kReadRequest)
                 {
-                    RequestPtr req_ptr = GetPbCoder().DecodeRequest(read_str);
+                    Request* req_ptr = GetPbCoder().DecodeRequest(read_str);
                     self->request_callback_(self, req_ptr);
                     self->state_ = PbSessionState::kReadTotalLen;
+                    delete req_ptr;
                 }
                 else
                 {
@@ -76,7 +77,7 @@ namespace jl
             });
     }
 
-    void PbSession::WriteResponse(const ResponsePtr &response)
+    void PbSession::WriteResponse(const Response* response)
     {
         std::string resp_str = GetPbCoder().EncodeResponse(response);
         connection_->Write(resp_str);
@@ -145,7 +146,7 @@ namespace jl
         }
         else if (state_ == PbSessionState::kReadRequest)
         {
-            RequestPtr req_ptr = GetPbCoder().DecodeRequest(req_str);
+            Request* req_ptr = GetPbCoder().DecodeRequest(req_str);
             request_callback_(shared_from_this(), req_ptr);
         }
         else

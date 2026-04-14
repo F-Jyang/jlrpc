@@ -33,7 +33,7 @@ namespace jl
                 std::size_t session_id = session_ptr->GetId();
                 LOG_DEBUG << "Accept new session: " << std::to_string(session_id);
                 session_ptr->SetRequestCallback(
-                    [&](const PbSessionPtr& session, const RequestPtr& request)
+                    [&](const PbSessionPtr& session, const Request* request)
                     {
                         this->OnSessionRead(session, request);
                     });
@@ -85,30 +85,31 @@ namespace jl
         }
     }
 
-    void PbServer::OnSessionRead(const PbSessionPtr &session, const RequestPtr &request)
+    void PbServer::OnSessionRead(const PbSessionPtr &session, const Request* request)
     {
         // RequestPtr req_ptr = pb_coder_->DecodeRequest(buffer,bytes_transfered);
         if (!request)
         {
             std::string err_msg = std::to_string(session->GetId()) + " send invalid request.";
             LOG_DEBUG << err_msg;
-            session->Close(); // or send msg_id = -1 and error code ???
+            session->Close(); // or send msg_id = -1 and error code ??
             return;
         }
-        ResponsePtr resp_ptr = dispatcher_->Dispatch(request);
-        if (resp_ptr->GetMsgId() == "HEARTBEAT")
+        Response* response = dispatcher_->Dispatch(request);
+        // if (response->GetMsgId() == "HEARTBEAT")
+        // {
+        //     // TODO：refresh timeout
+        // }
+        TimerEventWeak event_weak = std::any_cast<TimerEventWeak>(session->GetContext());
+        TimerEventPtr event_ptr = event_weak.lock();
+        if (event_ptr)
         {
-            // TODO：refresh timeout
-            TimerEventWeak event_weak = std::any_cast<TimerEventWeak>(session->GetContext());
-            TimerEventPtr event_ptr = event_weak.lock();
-            if (event_ptr)
-            {
-                event_ptr->RefreshTimeout(30);
-                timer_wheel_->AddTimerEvent(event_ptr);
-            }
+            event_ptr->RefreshTimeout(30);
+            timer_wheel_->AddTimerEvent(event_ptr);
         }
-        session->WriteResponse(resp_ptr);
-        session->Start();
+        session->WriteResponse(response);
+		session->Start();
+		delete response;
     }
 
     void PbServer::OnSessionWrite(const PbSessionPtr &session, std::size_t bytes_transferred)
