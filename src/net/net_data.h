@@ -63,6 +63,8 @@ namespace jl
     public:
         Response() noexcept;
 
+        Response(Response&& other);
+
         Response(const std::string &msg_id, const std::string &pd_data, NetErrorCode error_code = NetErrorCode::kNoError) noexcept;
 
         void SetMsgId(const std::string_view &msg_id);

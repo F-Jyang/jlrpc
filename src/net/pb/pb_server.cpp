@@ -12,7 +12,7 @@ namespace jl
         tcp_server_->SetConnEstablishCallback(
             [&](net::tcp::socket &&socket)
             {
-                ConnectionPtr conn = std::make_shared<TcpConnection>(std::move(socket), kDefaultBufferSize);
+                ConnectionPtr conn = std::make_shared<TcpConnection>(std::move(socket), ConnectionState::kActived, kDefaultBufferSize);
                 PbSessionPtr session_ptr = std::make_shared<PbSession>(conn);
                 session_ptr->SetTimeout(30);
                 TimerEventPtr event_ptr = std::make_shared<TimerEvent>(

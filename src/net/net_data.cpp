@@ -121,6 +121,14 @@ namespace jl
     {
     }
 
+    Response::Response(Response&& other):
+        error_code_(other.error_code_),
+        msg_id_(std::move(other.msg_id_)),
+        result_(std::move(other.result_))
+    {
+        
+    }
+
     Response::Response(const std::string &msg_id, const std::string &result, NetErrorCode error_code) noexcept :
         msg_id_(msg_id),
         result_(result),

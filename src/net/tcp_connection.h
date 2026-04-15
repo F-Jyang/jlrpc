@@ -3,6 +3,7 @@
 #include <asio/ip/tcp.hpp>
 #include <asio/streambuf.hpp>
 #include <atomic>
+#include <optional>
 #include <queue>
 
 namespace jl
@@ -44,19 +45,41 @@ namespace jl
     class TcpConnection : public std::enable_shared_from_this<TcpConnection>
     {
     public:
-        TcpConnection(net::tcp::socket &&socket, std::size_t max_buffer_size = kDefaultBufferSize);
+        TcpConnection(net::tcp::socket &&socket, ConnectionState state , std::size_t max_buffer_size = kDefaultBufferSize);
 
         bool Connect(const std::string& ip, unsigned short port);
 
         // std::size_t GetId() const;
 
-        /// @brief 读取指定长度字节
+        /// @brief 异步读取指定长度字节
         /// @param n
         void ReadLen(std::size_t n);
+
+        
+		/// @brief 同步读取指定长度字节
+		/// @param n
+        std::string SyncReadLen(std::size_t n);
+
+		/// @brief 同步读取指定长度字节
+		/// @param n 
+		/// @param ec 
+		/// @return 
+		std::string SyncReadLen(std::size_t n, std::error_code& ec);
 
         /// @brief 读取指定结束符。如果字节数超过max_buffer_size还没有读取到end，会直接返回
         /// @param end
         void ReadUtil(const std::string &end);
+
+		/// @brief 读取指定结束符。如果字节数超过max_buffer_size还没有读取到end，会直接返回
+		/// @param end
+        std::string SyncReadUtil(std::string_view end);
+
+
+        /// @brief 读取指定结束符。如果字节数超过max_buffer_size还没有读取到end，会直接返回
+        /// @param end 
+        /// @param ec 
+        /// @return 
+        std::string SyncReadUtil(std::string_view, std::error_code& ec);
 
         /// @brief 发送response string
         /// @param data
@@ -64,6 +87,9 @@ namespace jl
 
         /// @brief 关闭连接
         void Close();
+
+        /// @brief 判断是否连接
+        bool IsConnected();
 
         ConnectionInfo GetConnectionInfo() const;
 

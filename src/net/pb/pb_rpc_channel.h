@@ -1,12 +1,17 @@
 #pragma once
 
+#include <net/pb/pb_client.h>
 #include <google/protobuf/service.h>
+#include <future>
 
 namespace jl
 {
     class PbRpcChannel : public google::protobuf::RpcChannel
     {
     public:
+        
+        PbRpcChannel(asio::io_context& ioct, const std::string& ip, uint16_t port);
+        
         // Call the given method of the remote service.  The signature of this
         // procedure looks the same as Service::CallMethod(), but the requirements
         // are less strict in one important way:  the request and response objects
@@ -19,5 +24,11 @@ namespace jl
         void CallMethod(const google::protobuf::MethodDescriptor *method,
                         google::protobuf::RpcController *controller, const google::protobuf::Message *request,
                         google::protobuf::Message *response, google::protobuf::Closure *done) override;
+
+    private:
+        asio::io_context& ioct_;
+        std::string ip_;
+        uint16_t port_;
+        PbClientPtr client_;
     };
 }

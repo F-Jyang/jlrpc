@@ -1,10 +1,12 @@
 #include <iostream>
 #include <net/pb/pb_client.h>
+#include <net/pb/pb_rpc_channel.h>
+#include <net/pb/pb_rpc_controller.h>
 #include <utils/easy_log.hpp>
 #include <query_service_impl.h>
 #include <thread>
 
-#define CONNECTION_COUNT 30
+#define CONNECTION_COUNT 1
 
 int main()
 {
@@ -62,6 +64,13 @@ int main()
                 client_ptr->SendHeartBeat();
 				client_ptr->ReadResponse();
 
+                jl::PbRpcChannel channel(ioct,"127.0.0.1", 12345);
+                QueryService_Stub stub(&channel);
+                jl::PbRpcController controller;
+                QueryReq req;
+                QueryRsp resp;
+                stub.QueryName(&controller, &req, &resp, nullptr);
+                
                 ioct.run();
             }
         )

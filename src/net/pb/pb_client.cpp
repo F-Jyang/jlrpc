@@ -7,12 +7,17 @@ namespace jl
          timer_(ioct)
     {
         net::tcp::socket socket(ioct);
-        connection_ = std::make_shared<TcpConnection>(std::move(socket), max_buffer_size);
+        connection_ = std::make_shared<TcpConnection>(std::move(socket), ConnectionState::kClosed, max_buffer_size);
     }
 
     bool PbClient::Connect(const std::string &ip, unsigned short port)
     {
         return connection_->Connect(ip, port);
+    }
+
+    bool PbClient::IsConnected()
+    {
+        return connection_->IsConnected();
     }
 
     void PbClient::SendRequest(const Request* req_ptr)

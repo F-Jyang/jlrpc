@@ -3,8 +3,8 @@
 
 namespace jl
 {
-    PbSession::PbSession(net::tcp::socket &&socket)
-        : connection_(std::make_shared<TcpConnection>(std::move(socket))),
+    PbSession::PbSession(net::tcp::socket&& socket)
+        : connection_(std::make_shared<TcpConnection>(std::move(socket), ConnectionState::kActived, kDefaultBufferSize)),
           state_(PbSessionState::kReadTotalLen)
     {
         // LOG_DEBUG << "New tcpConnection";

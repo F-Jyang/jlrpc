@@ -93,6 +93,7 @@ namespace jl
             resp_ptr->SetErrorCode(NetErrorCode::kUnknown);
             return resp_ptr;
         }
+        controller.Finished();
         resp_ptr->SetResult(resp_str); // 设置rpc调用结果
         // need to Run done ???
         // if(done)

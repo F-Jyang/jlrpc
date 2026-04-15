@@ -28,6 +28,8 @@ namespace jl
 
         bool Connect(const std::string &ip, unsigned short port);
 
+        bool IsConnected();
+
         void SendRequest(const Request* req_ptr);
 
         void SendHeartBeat();
