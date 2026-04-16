@@ -26,7 +26,7 @@ namespace jl
         /// @brief 解码请求。成功返回Request，失败返回nullptr
         /// @param buffer
         /// @return
-        Request* DecodeRequest(const std::string& req_str)
+        Request* DecodeRequest(std::string_view req_str)
         {
             return impl_.DecodeRequest(req_str);
         }
@@ -42,7 +42,7 @@ namespace jl
         /// @brief 解码响应。成功返回Response，失败返回nullptr
         /// @param buffer
         /// @return
-        Response* DecodeResponse(const std::string& resp_str)
+        Response* DecodeResponse(std::string_view resp_str)
         {
             return impl_.DecodeResponse(resp_str);
         }

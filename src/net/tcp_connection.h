@@ -16,9 +16,9 @@ namespace jl
     class TcpConnection;
     using ConnectionPtr = std::shared_ptr<TcpConnection>;
 
-    using ReadCallback = std::function<void(const ConnectionPtr &, const std::string&)>;  
-    using WriteCallback = std::function<void(const ConnectionPtr &, std::size_t bytes_transferred)>;
-    using CloseCallback = std::function<void(const ConnectionPtr &)>;
+    using ReadCallback = std::function<void(const ConnectionPtr &, std::string_view, const std::error_code&)>;  
+    using WriteCallback = std::function<void(const ConnectionPtr &, std::size_t bytes_transferred, const std::error_code&)>;
+    using CloseCallback = std::function<void(const ConnectionPtr &, const std::error_code&)>;
 
     enum class ConnectionState
     {
@@ -45,7 +45,9 @@ namespace jl
     class TcpConnection : public std::enable_shared_from_this<TcpConnection>
     {
     public:
-        TcpConnection(net::tcp::socket &&socket, ConnectionState state , std::size_t max_buffer_size = kDefaultBufferSize);
+        TcpConnection(asio::io_context &ioct, net::tcp::socket &&socket, std::size_t max_buffer_size = kDefaultBufferSize);
+
+        TcpConnection(asio::io_context &ioct, std::size_t max_buffer_size = kDefaultBufferSize);
 
         bool Connect(const std::string& ip, unsigned short port);
 
@@ -53,7 +55,7 @@ namespace jl
 
         /// @brief 异步读取指定长度字节
         /// @param n
-        void ReadLen(std::size_t n);
+        void AsyncReadLen(std::size_t n);
 
         
 		/// @brief 同步读取指定长度字节
@@ -68,7 +70,7 @@ namespace jl
 
         /// @brief 读取指定结束符。如果字节数超过max_buffer_size还没有读取到end，会直接返回
         /// @param end
-        void ReadUtil(const std::string &end);
+        void AsyncReadUtil(std::string_view end);
 
 		/// @brief 读取指定结束符。如果字节数超过max_buffer_size还没有读取到end，会直接返回
 		/// @param end
@@ -81,12 +83,28 @@ namespace jl
         /// @return 
         std::string SyncReadUtil(std::string_view, std::error_code& ec);
 
-        /// @brief 发送response string
+        /// @brief 异步发送数据，禁止与同步发送数据同时使用
         /// @param data
-        void Write(const std::string &data);
+        void AsyncWrite(std::string_view data);
+
+		/// @brief 同步发送数据，禁止与异步发送同时使用，线程不安全
+		/// @param data 
+		/// @return 
+		std::size_t SyncWrite(std::string_view data);
+
+		/// @brief 同步发送数据，禁止与异步发送同时使用，线程不安全
+		/// @param data 
+		/// @param ec 
+		/// @return 
+		std::size_t SyncWrite(std::string_view data, std::error_code& ec);
 
         /// @brief 关闭连接
         void Close();
+
+        /// 取消socket上的所有操作
+        void Cancel();
+
+        void Cancel(std::error_code& ec);
 
         /// @brief 判断是否连接
         bool IsConnected();
@@ -122,14 +140,12 @@ namespace jl
 
         void OnTimeout(const std::error_code &ec);
 
-        void HandleError(const std::error_code &ec);
     
     private:
+        asio::io_context& ioct_;
         net::tcp::socket socket_;
-        // std::atomic<std::chrono::steady_clock::time_point> timeout_point_;
         std::atomic<ConnectionState> state_;
         std::atomic<bool> is_reading_;
-        // std::unique_ptr<ICoder> coder_;
         asio::streambuf read_buffer_;
         std::queue<std::string> write_queue_;
         ReadCallback read_callback_;

@@ -4,38 +4,45 @@
 
 namespace jl
 {
-    Request::Request() noexcept : 
-        msg_id_(""),
-        service_full_name_(""),
-        param_("")
+    Request::Request() noexcept
+        : msg_id_(""),
+          service_full_name_(""),
+          param_("")
     {
     }
 
-    Request::Request(const std::string &msg_id, const std::string &service_full_name, const std::string &param) noexcept:
-        msg_id_(msg_id),
-        service_full_name_(service_full_name),
-        param_(param)
+    Request::Request(std::string_view msg_id, std::string_view service_full_name, std::string_view param) noexcept
+        : msg_id_(msg_id),
+          service_full_name_(service_full_name),
+          param_(param)
     {
     }
 
-    Request::Request(const std::string &service_full_name, const std::string &param) noexcept:
-        service_full_name_(service_full_name),
-        param_(param)
-    
+    Request::Request(std::string_view service_full_name, std::string_view param) noexcept
+        : service_full_name_(service_full_name),
+          param_(param)
+
     {
     }
 
-    void Request::SetMsgId(const std::string &msg_id)
+    Request::Request(Request &&other) noexcept
+        : msg_id_(std::move(other.msg_id_)),
+          param_(std::move(other.param_)),
+          service_full_name_(std::move(other.service_full_name_))
+    {
+    }
+
+    void Request::SetMsgId(std::string_view msg_id)
     {
         msg_id_ = msg_id;
     }
 
-    std::string_view  Request::GetMsgId() const
+    std::string_view Request::GetMsgId() const
     {
         return msg_id_;
     }
 
-    void Request::SetServiceFullName(const std::string_view &service_full_name)
+    void Request::SetServiceFullName(std::string_view service_full_name)
     {
         service_full_name_ = service_full_name;
     }
@@ -114,39 +121,38 @@ namespace jl
     //     return result;
     // }
 
-    Response::Response() noexcept : 
-        msg_id_(""),
-        result_(""),
-        error_code_(NetErrorCode::kNoError)
+    Response::Response() noexcept
+        : msg_id_(""),
+          result_(""),
+          error_code_(NetErrorCode::kNoError)
     {
     }
 
-    Response::Response(Response&& other):
-        error_code_(other.error_code_),
-        msg_id_(std::move(other.msg_id_)),
-        result_(std::move(other.result_))
-    {
-        
-    }
-
-    Response::Response(const std::string &msg_id, const std::string &result, NetErrorCode error_code) noexcept :
-        msg_id_(msg_id),
-        result_(result),
-        error_code_(error_code)
+    Response::Response(Response &&other) noexcept
+        : error_code_(other.error_code_),
+          msg_id_(std::move(other.msg_id_)),
+          result_(std::move(other.result_))
     {
     }
 
-    void Response::SetMsgId(const std::string_view &msg_id)
+    Response::Response(std::string_view msg_id, std::string_view result, NetErrorCode error_code) noexcept
+        : msg_id_(msg_id),
+          result_(result),
+          error_code_(error_code)
+    {
+    }
+
+    void Response::SetMsgId(std::string_view msg_id)
     {
         msg_id_ = msg_id;
     }
 
-    std::string_view  Response::GetMsgId() const
+    std::string_view Response::GetMsgId() const
     {
         return msg_id_;
     }
 
-    void Response::SetResult(const std::string_view &result)
+    void Response::SetResult(std::string_view result)
     {
         result_ = result;
     }
@@ -221,14 +227,12 @@ namespace jl
     //     // memcpy(result.data() + idx, pb_data_.data(), pb_data_len_);
     //     return result;
     // }
-    
-    HeartBeatRequest::HeartBeatRequest() noexcept:
-        Request("HEARTBEAT","PING","")
+
+    HeartBeatRequest::HeartBeatRequest() noexcept : Request("HEARTBEAT", "PING", "")
     {
     }
 
-    HeartBeatResponse::HeartBeatResponse() noexcept:
-      Response("HEARTBEAT","PONG")
+    HeartBeatResponse::HeartBeatResponse() noexcept : Response("HEARTBEAT", "PONG")
     {
     }
 }

@@ -4,8 +4,7 @@
 #include <net/pb/pb_coder.h>
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/message.h>
-
-#include <future>
+#include <system_error>
 
 namespace jl
 {
@@ -16,16 +15,6 @@ namespace jl
         port_(port)
     {
         client_ = std::make_shared<PbClient>(ioct_, kDefaultBufferSize);
-		client_->SetResponseCallback(
-			[&](const jl::PbClientPtr& client, const jl::Response* response)
-			{
-                //this->resp_promise_.set_value(std::move(*response));
-			});
-		client_->SetReqeustCallback(
-			[&](const jl::PbClientPtr& client, std::size_t bytes_transefered)
-			{
-				LOG_DEBUG << "Client send " << std::to_string(bytes_transefered) << " bytes.";
-			});
     }
 
     void PbRpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method, google::protobuf::RpcController *controller, const google::protobuf::Message *request, google::protobuf::Message *response, google::protobuf::Closure *done)
@@ -41,10 +30,34 @@ namespace jl
            
             std::string param_str = request->SerializeAsString();
             const std::string& full_name = method->full_name();
-            jl::Request* req_ptr = new jl::Request(full_name, param_str);
-            req_ptr->SetMsgId("111"); // todo: get msg id
-            client_->SendRequest(req_ptr);
-            client_->ReadResponse();
+            jl::Request* req_ptr = new jl::Request("111",full_name, param_str); // todo: set msg_id
+            Response* resp_ptr = nullptr;
+            try
+            {
+                client_->SetTimeout(5);
+                bool res = client_->SendRequest(req_ptr);
+                if (!res)
+                {
+				    controller->SetFailed("Send request Error");
+                }
+                resp_ptr = client_->ReadResponse();
+                if(!resp_ptr)
+                {
+                    throw std::system_error(std::make_error_code(std::errc::timed_out), "read response");
+                }
+                std::string_view result_view = resp_ptr->GetResult();
+                if (!response->ParseFromString(absl::string_view(result_view.data(),result_view.size())))
+                {
+                    controller->SetFailed("Parse response Error");
+                }
+            }
+            catch (const std::exception& e)
+            {
+                // LOG
+                controller->SetFailed(e.what());
+            }
+
+            if (resp_ptr)delete resp_ptr;
             delete req_ptr;
         } while (0);
         if (done)

@@ -6,15 +6,16 @@
 
 #pragma once
 
+#include <net/tcp_connection.h>
 #include <asio/io_context.hpp>
 #include <asio/ip/tcp.hpp>
 
 namespace net = asio::ip;
 
-using ConnEstablishCallback = std::function<void(net::tcp::socket&&)>;
 
 namespace jl
 {
+    using ConnEstablishCallback = std::function<void(const ConnectionPtr&)>;
 
     class Acceptor : public std::enable_shared_from_this<Acceptor>
     {
@@ -34,7 +35,7 @@ namespace jl
         /// @brief 处理接受连接的回调函数
         /// @param socket 连接套接字
         /// @param ec 错误码
-        void OnAccept(net::tcp::socket&& socket, const std::error_code &ec);
+        void OnAccept(asio::io_context& ioct, net::tcp::socket&& socket, const std::error_code &ec);
 
     private:
         asio::io_context &ioct_;

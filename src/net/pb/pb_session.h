@@ -4,6 +4,7 @@
 #include <net/tcp_connection.h>
 #include <net/net_data.h>
 #include <net/pb/pb_coder.h>
+#include <string>
 // #include <interface/i_session.h>
 
 namespace jl
@@ -12,9 +13,9 @@ namespace jl
     class PbSession;
     using PbSessionPtr = std::shared_ptr<PbSession>;
 
-    using PbRequestCallback = std::function<void(const PbSessionPtr&, const Request*)>;
-    using PbResponseCallback = std::function<void(const PbSessionPtr&, std::size_t bytes_transferred)>;
-    using PbSessionCloseCallback = std::function<void(const PbSessionPtr&)>;
+    using PbRequestCallback = std::function<void(const PbSessionPtr&, const Request*, const std::error_code& ec)>;
+    using PbResponseCallback = std::function<void(const PbSessionPtr&, std::size_t bytes_transferred, const std::error_code& ec)>;
+    using PbSessionCloseCallback = std::function<void(const PbSessionPtr&, const std::error_code& ec)>;
 
     enum class PbSessionState
     {
@@ -25,7 +26,7 @@ namespace jl
     class PbSession : public std::enable_shared_from_this<PbSession>, public ISession
     {
     public:
-		PbSession(net::tcp::socket&& socket);
+		// PbSession(asio::io_context& ioct, net::tcp::socket&& socket);
 		
         PbSession(const ConnectionPtr& conn);
 
@@ -50,9 +51,9 @@ namespace jl
         
     private:
 
-        void OnRequest(const ConnectionPtr &conn, const std::string &req_str);
+        void OnRequest(const PbSessionPtr& session, std::string_view req_str, const std::error_code& ec);
 
-        void OnResponse(const ConnectionPtr &conn, std::size_t bytes_transferred);
+        void OnResponse(const PbSessionPtr& session, std::size_t bytes_transferred, const std::error_code& ec);
 
     private:
         std::size_t session_id_;

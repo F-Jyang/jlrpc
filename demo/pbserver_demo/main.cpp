@@ -48,6 +48,6 @@ int main(int, char **)
 	asio::io_context ioct;
 	jl::PbServer server(ioct, "127.0.0.1", 9999);
 	std::shared_ptr<google::protobuf::Service> query_service_ptr(new QueryServiceImpl());
-	server.RegisterSerivce("query_service", query_service_ptr);
+	server.RegisterSerivce("QueryService", query_service_ptr);
 	server.Start();
 }

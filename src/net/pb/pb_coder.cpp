@@ -39,7 +39,7 @@ namespace jl
         return req_with_len;
     }
 
-    Request* PbCoder::DecodeRequest(const std::string& req_str)
+    Request* PbCoder::DecodeRequest(std::string_view req_str)
     {
         if (req_str.size() < 3 * sizeof(int32_t) || req_str.size() > kMaxRequestSize)
         {
@@ -100,7 +100,7 @@ namespace jl
         return resp_with_len;
     }
 
-    Response* PbCoder::DecodeResponse(const std::string& resp_str)
+    Response* PbCoder::DecodeResponse(std::string_view resp_str)
     {
         if (resp_str.size() < 2 * sizeof(int32_t) || resp_str.size() > kMaxResponseSize)
         {

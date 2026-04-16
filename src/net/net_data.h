@@ -14,31 +14,31 @@
 namespace jl
 {
 
-    
     class Request;
     class Response;
-    
+
     using RequestPtr = std::shared_ptr<Request>;
     using ResponsePtr = std::shared_ptr<Response>;
-    
+
     constexpr int32_t kMaxRequestSize = 4 * 1024;
     constexpr int32_t kMaxResponseSize = 4 * 1024;
-    
 
     struct Request
     {
     public:
         Request() noexcept;
 
-        Request(const std::string &msg_id, const std::string &service_full_name, const std::string &param) noexcept;
+        Request(std::string_view msg_id, std::string_view service_full_name, std::string_view param) noexcept;
 
-        Request(const std::string &service_full_name, const std::string &param) noexcept;
+        Request(std::string_view service_full_name, std::string_view param) noexcept;
 
-        void SetMsgId(const std::string &msg_id);
+        Request(Request &&other) noexcept;
+
+        void SetMsgId(std::string_view msg_id);
 
         std::string_view GetMsgId() const;
 
-        void SetServiceFullName(const std::string_view &service_full_name);
+        void SetServiceFullName(std::string_view service_full_name);
 
         std::string_view GetServiceFullName() const;
 
@@ -49,7 +49,6 @@ namespace jl
         int32_t GetSize() const;
 
     private:
-
         // int32_t msg_id_len_;            // 消息id长度
         // int32_t service_full_name_len_; // 服务全名长度
         // int32_t pb_data_len_;           // pb数据长度
@@ -63,15 +62,15 @@ namespace jl
     public:
         Response() noexcept;
 
-        Response(Response&& other);
+        Response(Response &&other) noexcept;
 
-        Response(const std::string &msg_id, const std::string &pd_data, NetErrorCode error_code = NetErrorCode::kNoError) noexcept;
+        Response(std::string_view msg_id, std::string_view pd_data, NetErrorCode error_code = NetErrorCode::kNoError) noexcept;
 
-        void SetMsgId(const std::string_view &msg_id);
+        void SetMsgId(std::string_view msg_id);
 
         std::string_view GetMsgId() const;
 
-        void SetResult(const std::string_view &result);
+        void SetResult(std::string_view result);
 
         std::string_view GetResult() const;
 

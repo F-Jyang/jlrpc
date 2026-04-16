@@ -26,9 +26,9 @@ namespace jl
         void Stop();
 
     private:
-        void OnSessionClose(const PbSessionPtr &session);
-        void OnSessionRead(const PbSessionPtr &session, const Request* request);
-        void OnSessionWrite(const PbSessionPtr &session, std::size_t bytes_transferred);
+        void OnSessionClose(const PbSessionPtr &session, const std::error_code& ec);
+        void OnSessionRead(const PbSessionPtr &session, const Request* request, const std::error_code& ec);
+        void OnSessionWrite(const PbSessionPtr &session, std::size_t bytes_transferred, const std::error_code& ec);
 
     private:
         std::unique_ptr<TimerWheel> timer_wheel_;

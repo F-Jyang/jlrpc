@@ -1,5 +1,6 @@
 #include "tcp_connection.h"
 
+#include <utils/easy_log.hpp>
 #include <asio/read.hpp>
 #include <asio/read_until.hpp>
 #include <asio/write.hpp>
@@ -7,10 +8,20 @@
 
 namespace jl
 {
-    TcpConnection::TcpConnection(net::tcp::socket &&socket, ConnectionState state, std::size_t max_buffer_size)
-        : socket_(std::move(socket)),
+    TcpConnection::TcpConnection(asio::io_context &ioct, net::tcp::socket &&socket, std::size_t max_buffer_size)
+        : ioct_(ioct),
+          socket_(std::move(socket)),
           read_buffer_(max_buffer_size),
-          state_(state),
+          state_(ConnectionState::kActived),
+          is_reading_(false)
+    {
+    }
+
+    TcpConnection::TcpConnection(asio::io_context &ioct, std::size_t max_buffer_size)
+        : ioct_(ioct),
+          socket_(ioct),
+          read_buffer_(max_buffer_size),
+          state_(ConnectionState::kClosed),
           is_reading_(false)
     {
     }
@@ -18,19 +29,33 @@ namespace jl
     bool TcpConnection::Connect(const std::string &ip, unsigned short port)
     {
         std::error_code ec;
+        // 🔴 关键：确保 socket 是打开状态
+        if (!socket_.is_open())
+        {
+            socket_.open(asio::ip::tcp::v4(), ec);
+            if (ec)
+            {
+                // log error: "Failed to open socket"
+                return false;
+            }
+            // 重新设置 socket 选项（close 后会丢失）
+            socket_.set_option(asio::ip::tcp::no_delay(true), ec);
+            socket_.set_option(asio::socket_base::reuse_address(true), ec);
+        }
         asio::ip::tcp::resolver resolver(socket_.get_executor());
         auto resolve_result = resolver.resolve(net::tcp::endpoint(net::make_address(ip), port));
         auto iter = asio::connect(socket_, resolve_result.begin(), resolve_result.end(), ec);
-        if (ec || iter != resolve_result.end())
+        if (ec || iter == resolve_result.end())
         {
             // log error
+            socket_.close(ec);
             return false;
         }
         state_ = ConnectionState::kActived;
         return true;
     }
 
-    void TcpConnection::ReadLen(std::size_t n)
+    void TcpConnection::AsyncReadLen(std::size_t n)
     {
         bool expected = false;
         if (is_reading_.compare_exchange_strong(expected, true))
@@ -61,35 +86,48 @@ namespace jl
     {
         std::error_code ec;
         std::string result = SyncReadLen(n, ec);
-        asio::detail::throw_error(ec, "read_len"); // if(ec) throw std::system_error(xxx);
+        if (ec)
+        {
+            asio::detail::throw_error(ec, "read_len");
+        }
         return result;
     }
 
     std::string TcpConnection::SyncReadLen(std::size_t n, std::error_code &ec)
     {
         bool expected = false;
-        if (is_reading_.compare_exchange_strong(expected, false))
+        if (is_reading_.compare_exchange_strong(expected, true))
         {
+            std::size_t size;
+            ec = asio::error::would_block;
+            asio::async_read(
+                socket_,
+                read_buffer_,
+                asio::transfer_exactly(n),
+                [&](const std::error_code &block, std::size_t bytes_transffered)
+                {
+                    ec = block;
+                    size = bytes_transffered;
+                });
+            do
+                ioct_.run_one();
+            while (ec == asio::error::would_block);
             expected = true;
-            std::size_t len = asio::read(socket_, read_buffer_, asio::transfer_exactly(n), ec);
-            if (ec)
-            {
-                is_reading_.compare_exchange_strong(expected, false);
-                // log error
-                return "";
-            }
-            std::string result(len, '\0');
-            std::ostream os(&read_buffer_);
-            os.write(result.c_str(), len);
             is_reading_.compare_exchange_strong(expected, false);
-
-            return result;
+            if (!ec)
+            {
+                std::string result(size, '\0');
+                std::istream is(&read_buffer_);
+                is.read(result.data(), size);
+                return result;
+            }
+            return "";
         }
         ec = asio::error::in_progress;
         return "";
     }
 
-    void TcpConnection::ReadUtil(const std::string &end)
+    void TcpConnection::AsyncReadUtil(std::string_view end)
     {
         bool expected = false;
         if (is_reading_.compare_exchange_strong(expected, true))
@@ -101,11 +139,6 @@ namespace jl
                 end,
                 [self](const std::error_code &ec, std::size_t bytes_transferred)
                 {
-                    if (ec)
-                    {
-                        self->HandleError(ec);
-                        return;
-                    }
                     if (self->state_ != ConnectionState::kClosed)
                     {
                         self->OnRead(ec, bytes_transferred);
@@ -120,7 +153,10 @@ namespace jl
     {
         std::error_code ec;
         std::string result = SyncReadUtil(end, ec);
-        asio::detail::throw_error(ec, "read_until");
+        if (ec)
+        {
+            asio::detail::throw_error(ec, "read_until");
+        }
         return result;
     }
 
@@ -129,19 +165,30 @@ namespace jl
         bool expected = false;
         if (is_reading_.compare_exchange_strong(expected, true))
         {
+            std::size_t size;
+            ec = asio::error::would_block;
+            asio::async_read_until(
+                this->socket_,
+                read_buffer_,
+                end,
+                [&](const std::error_code &block, std::size_t bytes_tranffered)
+                {
+                    ec = block;
+                    size = bytes_tranffered;
+                });
+            do
+                ioct_.run_one();
+            while (ec == asio::error::would_block);
             expected = true;
-            std::size_t n = asio::read_until(this->socket_, read_buffer_, end, ec);
-            if (ec)
-            {
-                // log error
-                is_reading_.compare_exchange_strong(expected, false);
-                return "";
-            }
-            std::string result(n, '\0');
-            std::ostream os(&read_buffer_);
-            os.write(result.c_str(), n);
             is_reading_.compare_exchange_strong(expected, false);
-            return result;
+            if (!ec)
+            {
+                std::string result(size, '\0');
+                std::istream is(&read_buffer_);
+                is.read(result.data(), size);
+                return result;
+            }
+            return "";
         }
         ec = asio::error::in_progress;
         return "";
@@ -153,39 +200,26 @@ namespace jl
 
     void TcpConnection::OnRead(const std::error_code &ec, size_t bytes_transferred)
     {
+        std::string read_str;
         if (!ec)
         {
-            if (read_callback_)
-            {
-                std::string read_str(bytes_transferred, '\0');
-                std::istream is(&read_buffer_);
-                is.read(read_str.data(), bytes_transferred);
-                read_callback_(shared_from_this(), read_str);
-            }
-            else
-            {
-                // TODO: rpc failed, handle no callback set，send error code
-
-                // define a global func ???
-                // OnNoReadCallback(req_opt.value());
-            }
+            read_str.resize(bytes_transferred);
+            std::istream is(&read_buffer_);
+            is.read(read_str.data(), bytes_transferred);
         }
-        else
+        if (read_callback_)
         {
-            if (ec != asio::error::eof)
-            {
-                std::error_code ignore;
-            }
-            Close();
+            read_callback_(shared_from_this(), read_str, ec);
         }
     }
 
-    void TcpConnection::Write(const std::string &data)
+    void TcpConnection::AsyncWrite(std::string_view data)
     {
         auto self = shared_from_this();
+        std::string copy = std::string(data.data(), data.size());
         asio::post(
             socket_.get_executor(), // 保证send_queue线程安全
-            [self, copy = std::move(data)]()
+            [self, copy]()
             {
                 const bool is_writing = !self->write_queue_.empty();
                 self->write_queue_.emplace(std::move(copy));
@@ -195,6 +229,40 @@ namespace jl
                     self->DoWrite();
                 }
             });
+    }
+
+    std::size_t TcpConnection::SyncWrite(std::string_view data)
+    {
+        std::error_code ec;
+        std::size_t n = SyncWrite(data, ec);
+        if (ec)
+        {
+            asio::detail::do_throw_error(ec);
+        }
+        return n;
+    }
+
+    std::size_t TcpConnection::SyncWrite(std::string_view data, std::error_code &ec)
+    {
+        // asio::post(
+        //     socket_.get_executor(),
+
+        // );
+        std::size_t size;
+        ec = asio::error::would_block;
+        asio::async_write(
+            socket_,
+            asio::buffer(data),
+            asio::transfer_exactly(data.size()),
+            [&](const std::error_code &block, std::size_t bytes_transffered)
+            {
+                ec = block;
+                size = bytes_transffered;
+            });
+        do
+            ioct_.run_one();
+        while (ec == asio::error::would_block);
+        return size;
     }
 
     void TcpConnection::DoWrite()
@@ -223,25 +291,17 @@ namespace jl
 
     void TcpConnection::OnWrite(const std::error_code &ec, size_t bytes_transferred)
     {
-        if (!ec)
+        if (write_callback_)
         {
-            if (write_callback_)
-            {
-                write_callback_(shared_from_this(), bytes_transferred);
-            }
-        }
-        else
-        {
-            std::error_code ignore;
-            // log
-            Close();
+            write_callback_(shared_from_this(), bytes_transferred, ec);
         }
     }
 
     void TcpConnection::OnTimeout(const std::error_code &ec)
     {
-        if (ec != asio::error::operation_aborted)
+        if (ec && ec != asio::error::operation_aborted)
         {
+            //  TODO: timeout callback
         }
     }
 
@@ -257,9 +317,24 @@ namespace jl
             if (this->close_callback_)
             {
 
-                this->close_callback_(self);
+                this->close_callback_(self, ignore);
             }
         }
+    }
+
+    void TcpConnection::Cancel()
+    {
+        std::error_code ec;
+        Cancel(ec);
+        if (ec)
+        {
+            asio::detail::throw_error(ec);
+        }
+    }
+
+    void TcpConnection::Cancel(std::error_code &ec)
+    {
+        socket_.cancel(ec);
     }
 
     bool TcpConnection::IsConnected()
@@ -281,14 +356,5 @@ namespace jl
     const asio::any_io_executor &TcpConnection::GetIoExecutor()
     {
         return socket_.get_executor();
-    }
-
-    void TcpConnection::HandleError(const std::error_code &ec)
-    {
-        // LOG_DEBUG << std::to_string(GetId()) << " handle error:" + ec.message();
-        if (ec == asio::error::eof)
-        {
-            Close();
-        }
     }
 }

@@ -17,7 +17,7 @@ namespace jl
         /// @brief 解码请求。将request_string解码为Request，失败返回nullptr
         /// @param buffer
         /// @return
-        Request* DecodeRequest(const std::string& req_str);
+        Request* DecodeRequest(std::string_view req_str);
 
         /// @brief 编码响应。将response转换为total_len+response_string用于发送
         /// @param response
@@ -27,7 +27,7 @@ namespace jl
         /// @brief 解码响应。将response_string解码为Response，失败返回nullptr
         /// @param buffer
         /// @return
-        Response* DecodeResponse(const std::string& resp_str);
+        Response* DecodeResponse(std::string_view resp_str);
     };
 
     Coder<PbCoder>& GetPbCoder();
