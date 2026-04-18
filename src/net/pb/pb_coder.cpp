@@ -8,17 +8,7 @@ namespace jl
 {
     std::string PbCoder::EncodeRequest(const Request* req_ptr)
     {
-        if (!req_ptr)
-        {
-            // nullptr error
-            return "xxx";
-        }
         int32_t total_len = 4 * sizeof(int32_t) + req_ptr->GetSize();
-        if (total_len > kMaxRequestSize)
-        {
-            // length error
-            return "xxx";
-        }
         std::string_view msg_id = req_ptr->GetMsgId(), param = req_ptr->GetParam(), service_full_name = req_ptr->GetServiceFullName();
         int32_t msg_id_len = msg_id.size(), param_len = param.size(), service_full_name_len = service_full_name.size();
         std::string req_with_len(total_len, '\0');
@@ -70,17 +60,7 @@ namespace jl
 
     std::string PbCoder::EncodeResponse(const Response* resp_ptr)
     {
-        if (!resp_ptr)
-        {
-            // nullptr error
-            return "xxx";
-        }
         int32_t total_len = 3 * sizeof(int32_t) + resp_ptr->GetSize();
-        if (total_len > kMaxResponseSize)
-        {
-            // length error
-            return "xxx";
-        }
         std::string_view msg_id = resp_ptr->GetMsgId(), result = resp_ptr->GetResult();
         int32_t error_code = static_cast<int32_t>(resp_ptr->GetErrorCode());
         int32_t msg_id_len = msg_id.size(), result_len = result.size();

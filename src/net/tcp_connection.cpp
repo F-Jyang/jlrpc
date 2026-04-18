@@ -5,6 +5,7 @@
 #include <asio/read_until.hpp>
 #include <asio/write.hpp>
 #include <asio/connect.hpp>
+#include <asio/io_context.hpp>
 
 namespace jl
 {
@@ -29,7 +30,7 @@ namespace jl
     bool TcpConnection::Connect(const std::string &ip, unsigned short port)
     {
         std::error_code ec;
-        // 🔴 关键：确保 socket 是打开状态
+        // 关键：确保 socket 是打开状态
         if (!socket_.is_open())
         {
             socket_.open(asio::ip::tcp::v4(), ec);
@@ -82,10 +83,10 @@ namespace jl
         }
     }
 
-    std::string TcpConnection::SyncReadLen(std::size_t n)
+    std::string TcpConnection::SyncReadLen(std::size_t n, int timeout)
     {
         std::error_code ec;
-        std::string result = SyncReadLen(n, ec);
+        std::string result = SyncReadLen(n, timeout, ec);
         if (ec)
         {
             asio::detail::throw_error(ec, "read_len");
@@ -93,7 +94,7 @@ namespace jl
         return result;
     }
 
-    std::string TcpConnection::SyncReadLen(std::size_t n, std::error_code &ec)
+    std::string TcpConnection::SyncReadLen(std::size_t n, int timeout, std::error_code &ec)
     {
         bool expected = false;
         if (is_reading_.compare_exchange_strong(expected, true))
@@ -109,12 +110,11 @@ namespace jl
                     ec = block;
                     size = bytes_transffered;
                 });
-            do
-                ioct_.run_one();
-            while (ec == asio::error::would_block);
+			Wait(std::chrono::seconds(timeout));
             expected = true;
             is_reading_.compare_exchange_strong(expected, false);
-            if (!ec)
+            // warn: 超时、断开重连时需要读取缓存在read_buffer_中的数据，否则下次read会导致读取的是read_buffer_缓存的数据
+            if (!ec || ec == asio::error::operation_aborted || ec == asio::error::timed_out || ec == asio::error::eof) 
             {
                 std::string result(size, '\0');
                 std::istream is(&read_buffer_);
@@ -149,10 +149,10 @@ namespace jl
         }
     }
 
-    std::string TcpConnection::SyncReadUtil(std::string_view end)
+    std::string TcpConnection::SyncReadUtil(std::string_view end, int timeout)
     {
         std::error_code ec;
-        std::string result = SyncReadUtil(end, ec);
+        std::string result = SyncReadUtil(end, timeout, ec);
         if (ec)
         {
             asio::detail::throw_error(ec, "read_until");
@@ -160,7 +160,7 @@ namespace jl
         return result;
     }
 
-    std::string TcpConnection::SyncReadUtil(std::string_view end, std::error_code &ec)
+    std::string TcpConnection::SyncReadUtil(std::string_view end, int timeout, std::error_code &ec)
     {
         bool expected = false;
         if (is_reading_.compare_exchange_strong(expected, true))
@@ -171,23 +171,22 @@ namespace jl
                 this->socket_,
                 read_buffer_,
                 end,
-                [&](const std::error_code &block, std::size_t bytes_tranffered)
+                [&](const std::error_code& block, std::size_t bytes_transffered)
                 {
                     ec = block;
-                    size = bytes_tranffered;
+                    size = bytes_transffered;
                 });
-            do
-                ioct_.run_one();
-            while (ec == asio::error::would_block);
+			Wait(std::chrono::seconds(timeout));
             expected = true;
             is_reading_.compare_exchange_strong(expected, false);
-            if (!ec)
-            {
-                std::string result(size, '\0');
-                std::istream is(&read_buffer_);
-                is.read(result.data(), size);
-                return result;
-            }
+			// warn: 超时、断开重连时需要读取缓存在read_buffer_中的数据，否则下次read会导致读取的是read_buffer_缓存的数据
+			if (!ec || ec == asio::error::operation_aborted || ec == asio::error::timed_out || ec == asio::error::eof)
+			{
+				std::string result(size, '\0');
+				std::istream is(&read_buffer_);
+				is.read(result.data(), size);
+				return result;
+			}
             return "";
         }
         ec = asio::error::in_progress;
@@ -231,10 +230,10 @@ namespace jl
             });
     }
 
-    std::size_t TcpConnection::SyncWrite(std::string_view data)
+    std::size_t TcpConnection::SyncWrite(std::string_view data, int timeout)
     {
         std::error_code ec;
-        std::size_t n = SyncWrite(data, ec);
+        std::size_t n = SyncWrite(data, timeout, ec);
         if (ec)
         {
             asio::detail::do_throw_error(ec);
@@ -242,12 +241,8 @@ namespace jl
         return n;
     }
 
-    std::size_t TcpConnection::SyncWrite(std::string_view data, std::error_code &ec)
+    std::size_t TcpConnection::SyncWrite(std::string_view data, int timeout, std::error_code &ec)
     {
-        // asio::post(
-        //     socket_.get_executor(),
-
-        // );
         std::size_t size;
         ec = asio::error::would_block;
         asio::async_write(
@@ -259,9 +254,7 @@ namespace jl
                 ec = block;
                 size = bytes_transffered;
             });
-        do
-            ioct_.run_one();
-        while (ec == asio::error::would_block);
+        Wait(std::chrono::seconds(timeout));
         return size;
     }
 
@@ -297,13 +290,17 @@ namespace jl
         }
     }
 
-    void TcpConnection::OnTimeout(const std::error_code &ec)
+    void TcpConnection::OnTimeout(const std::error_code& ec)
     {
-        if (ec && ec != asio::error::operation_aborted)
+        //if (ec && ec != asio::error::operation_aborted)
+        //{
+        //    LOG_DEBUG << __FUNCTION__ << ": " << ec.message();
+        //}
+        if (timeout_callback_)
         {
-            //  TODO: timeout callback
+            timeout_callback_(shared_from_this(), ec);
         }
-    }
+    };
 
     void TcpConnection::Close()
     {
@@ -335,6 +332,7 @@ namespace jl
     void TcpConnection::Cancel(std::error_code &ec)
     {
         socket_.cancel(ec);
+        //LOG_DEBUG << std::to_string(socket_.available());
     }
 
     bool TcpConnection::IsConnected()

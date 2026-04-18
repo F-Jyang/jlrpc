@@ -19,6 +19,7 @@ namespace jl
     using ReadCallback = std::function<void(const ConnectionPtr &, std::string_view, const std::error_code&)>;  
     using WriteCallback = std::function<void(const ConnectionPtr &, std::size_t bytes_transferred, const std::error_code&)>;
     using CloseCallback = std::function<void(const ConnectionPtr &, const std::error_code&)>;
+    using TimeoutCallback = std::function<void(const ConnectionPtr&, const std::error_code&)>;
 
     enum class ConnectionState
     {
@@ -57,16 +58,15 @@ namespace jl
         /// @param n
         void AsyncReadLen(std::size_t n);
 
-        
 		/// @brief 同步读取指定长度字节
 		/// @param n
-        std::string SyncReadLen(std::size_t n);
+        std::string SyncReadLen(std::size_t n, int timeout);
 
 		/// @brief 同步读取指定长度字节
 		/// @param n 
 		/// @param ec 
 		/// @return 
-		std::string SyncReadLen(std::size_t n, std::error_code& ec);
+		std::string SyncReadLen(std::size_t n, int timeout, std::error_code& ec);
 
         /// @brief 读取指定结束符。如果字节数超过max_buffer_size还没有读取到end，会直接返回
         /// @param end
@@ -74,14 +74,15 @@ namespace jl
 
 		/// @brief 读取指定结束符。如果字节数超过max_buffer_size还没有读取到end，会直接返回
 		/// @param end
-        std::string SyncReadUtil(std::string_view end);
+        std::string SyncReadUtil(std::string_view end, int timeout);
 
 
         /// @brief 读取指定结束符。如果字节数超过max_buffer_size还没有读取到end，会直接返回
         /// @param end 
-        /// @param ec 
+		/// @param timeout 超时时间 
+		/// @param ec 
         /// @return 
-        std::string SyncReadUtil(std::string_view, std::error_code& ec);
+        std::string SyncReadUtil(std::string_view end, int timeout, std::error_code& ec);
 
         /// @brief 异步发送数据，禁止与同步发送数据同时使用
         /// @param data
@@ -89,14 +90,16 @@ namespace jl
 
 		/// @brief 同步发送数据，禁止与异步发送同时使用，线程不安全
 		/// @param data 
+		/// @param timeout 超时时间 
 		/// @return 
-		std::size_t SyncWrite(std::string_view data);
+		std::size_t SyncWrite(std::string_view data, int timeout);
 
 		/// @brief 同步发送数据，禁止与异步发送同时使用，线程不安全
 		/// @param data 
+		/// @param timeout 超时时间 
 		/// @param ec 
 		/// @return 
-		std::size_t SyncWrite(std::string_view data, std::error_code& ec);
+		std::size_t SyncWrite(std::string_view data, int timeout, std::error_code& ec);
 
         /// @brief 关闭连接
         void Close();
@@ -128,6 +131,11 @@ namespace jl
             close_callback_ = callback;
         }
 
+        void SetTimeoutCallback(const TimeoutCallback& callback)
+        {
+            timeout_callback_ = callback;
+        }
+
         ~TcpConnection();
 
     private:
@@ -140,6 +148,18 @@ namespace jl
 
         void OnTimeout(const std::error_code &ec);
 
+		template <typename Rep, typename Period>
+		void Wait(const std::chrono::duration<Rep, Period>& timeout)
+		{
+			ioct_.restart();
+			ioct_.run_for(timeout);
+			if (!ioct_.stopped())
+			{
+				this->OnTimeout(std::make_error_code(std::errc::timed_out));
+				// run the io_context again until the operation completes. 处理掉超时后被中断的任务，任务的异步回调中ec应该是operation_abort
+				ioct_.run();
+			}
+		}
     
     private:
         asio::io_context& ioct_;
@@ -151,6 +171,7 @@ namespace jl
         ReadCallback read_callback_;
         WriteCallback write_callback_;
         CloseCallback close_callback_;
+        TimeoutCallback timeout_callback_;
     };
 
 }

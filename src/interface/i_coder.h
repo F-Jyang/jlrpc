@@ -15,7 +15,7 @@ namespace jl
     class Coder
     {
     public:
-        /// @brief 编码请求。将request转换为string用于发送
+        /// @brief 编码请求。将request序列化为string用于发送，如果传入nullptr会导致崩溃
         /// @param request
         /// @return
         std::string EncodeRequest(const Request* request)
@@ -31,7 +31,7 @@ namespace jl
             return impl_.DecodeRequest(req_str);
         }
 
-        /// @brief 编码响应。将request转换为string用于发送
+        /// @brief 编码响应。将request转换为string用于发送，如果传入nullptr会导致崩溃
         /// @param response
         /// @return
         std::string EncodeResponse(const Response* response)
