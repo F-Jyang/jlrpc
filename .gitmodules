@@ -1,3 +1,9 @@
 [submodule "3rd/asio"]
 	path = 3rd/asio
 	url = https://github.com/chriskohlhoff/asio.git
+[submodule "3rd/httplib"]
+	path = 3rd/httplib
+	url = https://github.com/yhirose/cpp-httplib.git
+[submodule "3rd/nlohmann_json"]
+	path = 3rd/nlohmann_json
+	url = https://github.com/nlohmann/json.git

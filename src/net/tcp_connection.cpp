@@ -141,9 +141,9 @@ namespace jl
                 {
                     if (self->state_ != ConnectionState::kClosed)
                     {
-                        self->OnRead(ec, bytes_transferred);
                         bool expected = true;
                         self->is_reading_.compare_exchange_strong(expected, false);
+                        self->OnRead(ec, bytes_transferred);
                     }
                 });
         }
@@ -221,7 +221,7 @@ namespace jl
             [self, copy]()
             {
                 const bool is_writing = !self->write_queue_.empty();
-                self->write_queue_.emplace(std::move(copy));
+                self->write_queue_.emplace(copy);
                 // LOG_DEBUG << std::to_string(self->write_queue_.size());
                 if (!is_writing)
                 {
@@ -261,6 +261,7 @@ namespace jl
     void TcpConnection::DoWrite()
     {
         auto self = shared_from_this();
+        LOG_DEBUG << "Write response";
         asio::async_write(
             socket_,
             asio::buffer(this->write_queue_.front()),

@@ -48,11 +48,16 @@ namespace jl
         // std::string resp_len_str = connection_->SyncReadLen(kTotalLenSize);
         std::error_code ec;
         std::string resp_str = connection_->SyncReadLen(kTotalLenSize, timeout_, ec);
-        assert(!ec);
+        LOG_DEBUG << "Read response len finish";
+        if (ec == asio::error::connection_aborted) // 远程连接断开后会触发
+        {
+            LOG_DEBUG << "ec: " << ec.message();
+            assert(false);
+        }
         std::size_t resp_len = 0;
         memcpy(&resp_len, resp_str.c_str(), kTotalLenSize);
-        resp_str = connection_->SyncReadLen(resp_len - kTotalLenSize + 2, timeout_, ec);
-        LOG_DEBUG << std::to_string(resp_str.size()) << "    " << std::to_string(resp_len - kTotalLenSize + 2);
+        resp_str = connection_->SyncReadLen(resp_len - kTotalLenSize, timeout_, ec);
+        // LOG_DEBUG << std::to_string(resp_str.size()) << "    " << std::to_string(resp_len - kTotalLenSize + 2);
         if (ec)
         {
             LOG_DEBUG << ec.message();

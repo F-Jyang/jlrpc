@@ -28,7 +28,7 @@ namespace jl
      *          ————————————————————————————————————
      */
 
-    class PbCoder
+    class PbCoder : public Coder<PbCoder>
     {
     public:
         /// @brief 编码请求。将request转换为total_len+request_string用于发送

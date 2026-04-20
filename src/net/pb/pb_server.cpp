@@ -1,6 +1,7 @@
 #include "pb_server.h"
 #include <net/net_data.h>
 #include <utils/easy_log.hpp>
+#include <asio/post.hpp>
 
 namespace jl
 {
@@ -17,15 +18,23 @@ namespace jl
                 TimerEventPtr event_ptr = std::make_shared<TimerEvent>(
                     session_ptr,
                     [session_weak = session_ptr->weak_from_this()]()
+                {
+                    // TODO: 需要使用 asio::post 将 session_ptr->Close 丢到Connection的io_context执行吗？
+
+                    LOG_DEBUG << "OnSession timeout event";
+                    SessionPtr session_ptr = session_weak.lock();
+                    if (session_ptr)
                     {
-                        LOG_DEBUG << "OnSession timeout event";
-                        SessionPtr session_ptr = session_weak.lock();
-                        if (session_ptr)
-                        {
-                            LOG_DEBUG << "Session timeout close";
-                            session_ptr->Close();
-                        }
-                    });
+                        LOG_DEBUG << "Session timeout close";
+                        asio::post(
+                            session_ptr->GetIoExecutor(),
+                            [session_ptr]()
+                            {
+                                session_ptr->Close();
+                            }
+                        );
+                    }
+                });
                 TimerEventWeak event_weak(event_ptr);
                 session_ptr->SetContext(TimerEventWeak(event_ptr));
                 timer_wheel_->AddTimerEvent(event_ptr);

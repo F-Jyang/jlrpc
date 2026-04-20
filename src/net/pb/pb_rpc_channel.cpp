@@ -34,7 +34,7 @@ namespace jl
             Response* resp_ptr = nullptr;
             try
             {
-                client_->SetTimeout(5);
+                client_->SetTimeout(32);
                 bool res = client_->SendRequest(req_ptr);
                 if (!res)
                 {

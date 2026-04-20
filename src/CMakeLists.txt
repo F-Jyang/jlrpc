@@ -1,10 +1,4 @@
-# add_subdirectory("./rpc")
-# add_subdirectory("./net")
 
-# add_library(jlrpc_static STATIC
-#     jlrpc_obj
-#     net_obj
-# )
 
 find_package(protobuf CONFIG QUIET)
 if(NOT protobuf_FOUND)
@@ -12,6 +6,7 @@ if(NOT protobuf_FOUND)
 endif()
 aux_source_directory("./net" NET_SRC)
 aux_source_directory("./net/pb" NET_SRC)
+aux_source_directory("./net/json_rpc" NET_SRC)
 aux_source_directory("./rpc" RPC_SRC)
 
 list(APPEND SRCS ${NET_SRC} ${RPC_SRC})
@@ -24,6 +19,8 @@ add_library(jlrpc_static STATIC
 
 target_include_directories(jlrpc_static PUBLIC
     "${3rd}/asio/asio/include"
+    "${3rd}/nlohmann_json/single_include/"
+    "${3rd}/httplib/"
     "${CMAKE_CURRENT_SOURCE_DIR}/"
 )
 
