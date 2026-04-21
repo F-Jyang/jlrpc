@@ -54,7 +54,7 @@ namespace jl
 
         // std::size_t GetId() const;
 
-        /// @brief 异步读取指定长度字节
+        /// @brief 异步从socket中读取指定长度字节。与AsyncReadUntil行为不同的是，该函数不会从read_buffer_中读取，而是直接从socket读取。
         /// @param n
         void AsyncReadLen(std::size_t n);
 
@@ -68,7 +68,7 @@ namespace jl
 		/// @return 
 		std::string SyncReadLen(std::size_t n, int timeout, std::error_code& ec);
 
-        /// @brief 读取指定结束符。如果字节数超过max_buffer_size还没有读取到end，会直接返回
+        /// @brief 异步读取指定结束符，如果read_buffer_中存在end则会直接调用回调，不存在end则从socket中读取，读取的字节数可能会多余end，多余的部分会存储在read_buffer_中。如果字节数超过max_buffer_size还没有读取到end，会直接返回
         /// @param end
         void AsyncReadUtil(std::string_view end);
 

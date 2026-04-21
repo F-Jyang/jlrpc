@@ -61,19 +61,23 @@ namespace jl
         bool expected = false;
         if (is_reading_.compare_exchange_strong(expected, true))
         {
+            std::size_t readable = read_buffer_.size();
+            // read_buffer_中剩余的字节超过n。解析HTTP，先ReadUntil后ReadLen可能进入
+            if (readable >= n)
+            {
+                std::error_code ec;
+                OnRead(ec, n);
+                return;
+            }
+
             auto self = shared_from_this();
             asio::async_read(
                 this->socket_,
                 read_buffer_,
-                asio::transfer_exactly(n),
-                [self](const std::error_code &ec, std::size_t bytes_transferred)
+                asio::transfer_exactly(n - readable),
+                [self, readable](const std::error_code &ec, std::size_t bytes_transferred)
                 {
-                    if (self->state_ != ConnectionState::kClosed)
-                    {
-                        bool expected = true;
-                        self->is_reading_.compare_exchange_strong(expected, false);
-                        self->OnRead(ec, bytes_transferred);
-                    }
+                    self->OnRead(ec, readable + bytes_transferred);
                 });
         }
         else
@@ -99,22 +103,31 @@ namespace jl
         bool expected = false;
         if (is_reading_.compare_exchange_strong(expected, true))
         {
+            std::size_t readable = read_buffer_.size();
             std::size_t size;
-            ec = asio::error::would_block;
-            asio::async_read(
-                socket_,
-                read_buffer_,
-                asio::transfer_exactly(n),
-                [&](const std::error_code &block, std::size_t bytes_transffered)
-                {
-                    ec = block;
-                    size = bytes_transffered;
-                });
-			Wait(std::chrono::seconds(timeout));
+            // 读取read_buffer_中残留的字节
+            if (readable >= n)
+            {
+                size = n;
+            }
+            else
+            {
+                ec = asio::error::would_block;
+                asio::async_read(
+                    socket_,
+                    read_buffer_,
+                    asio::transfer_exactly(n - readable),
+                    [&](const std::error_code &block, std::size_t bytes_transffered)
+                    {
+                        ec = block;
+                        size = readable + bytes_transffered;
+                    });
+                Wait(std::chrono::seconds(timeout));
+            }
             expected = true;
             is_reading_.compare_exchange_strong(expected, false);
             // warn: 超时、断开重连时需要读取缓存在read_buffer_中的数据，否则下次read会导致读取的是read_buffer_缓存的数据
-            if (!ec || ec == asio::error::operation_aborted || ec == asio::error::timed_out || ec == asio::error::eof) 
+            if (!ec || ec == asio::error::operation_aborted || ec == asio::error::timed_out || ec == asio::error::eof)
             {
                 std::string result(size, '\0');
                 std::istream is(&read_buffer_);
@@ -139,12 +152,7 @@ namespace jl
                 end,
                 [self](const std::error_code &ec, std::size_t bytes_transferred)
                 {
-                    if (self->state_ != ConnectionState::kClosed)
-                    {
-                        bool expected = true;
-                        self->is_reading_.compare_exchange_strong(expected, false);
-                        self->OnRead(ec, bytes_transferred);
-                    }
+                    self->OnRead(ec, bytes_transferred);
                 });
         }
     }
@@ -171,22 +179,22 @@ namespace jl
                 this->socket_,
                 read_buffer_,
                 end,
-                [&](const std::error_code& block, std::size_t bytes_transffered)
+                [&](const std::error_code &block, std::size_t bytes_transffered)
                 {
                     ec = block;
                     size = bytes_transffered;
                 });
-			Wait(std::chrono::seconds(timeout));
+            Wait(std::chrono::seconds(timeout));
             expected = true;
             is_reading_.compare_exchange_strong(expected, false);
-			// warn: 超时、断开重连时需要读取缓存在read_buffer_中的数据，否则下次read会导致读取的是read_buffer_缓存的数据
-			if (!ec || ec == asio::error::operation_aborted || ec == asio::error::timed_out || ec == asio::error::eof)
-			{
-				std::string result(size, '\0');
-				std::istream is(&read_buffer_);
-				is.read(result.data(), size);
-				return result;
-			}
+            // warn: 超时、断开重连时需要读取缓存在read_buffer_中的数据，否则下次read会导致读取的是read_buffer_缓存的数据
+            if (!ec || ec == asio::error::operation_aborted || ec == asio::error::timed_out || ec == asio::error::eof)
+            {
+                std::string result(size, '\0');
+                std::istream is(&read_buffer_);
+                is.read(result.data(), size);
+                return result;
+            }
             return "";
         }
         ec = asio::error::in_progress;
@@ -199,16 +207,21 @@ namespace jl
 
     void TcpConnection::OnRead(const std::error_code &ec, size_t bytes_transferred)
     {
-        std::string read_str;
-        if (!ec)
+        if (state_ != ConnectionState::kClosed)
         {
-            read_str.resize(bytes_transferred);
-            std::istream is(&read_buffer_);
-            is.read(read_str.data(), bytes_transferred);
-        }
-        if (read_callback_)
-        {
-            read_callback_(shared_from_this(), read_str, ec);
+            std::string read_str;
+            if (!ec)
+            {
+                read_str.resize(bytes_transferred);
+                std::istream is(&read_buffer_);
+                is.read(read_str.data(), bytes_transferred);
+            }
+            bool expected = true;
+            is_reading_.compare_exchange_strong(expected, false);
+            if (read_callback_)
+            {
+                read_callback_(shared_from_this(), read_str, ec);
+            }
         }
     }
 
@@ -291,12 +304,12 @@ namespace jl
         }
     }
 
-    void TcpConnection::OnTimeout(const std::error_code& ec)
+    void TcpConnection::OnTimeout(const std::error_code &ec)
     {
-        //if (ec && ec != asio::error::operation_aborted)
+        // if (ec && ec != asio::error::operation_aborted)
         //{
-        //    LOG_DEBUG << __FUNCTION__ << ": " << ec.message();
-        //}
+        //     LOG_DEBUG << __FUNCTION__ << ": " << ec.message();
+        // }
         if (timeout_callback_)
         {
             timeout_callback_(shared_from_this(), ec);
@@ -333,7 +346,7 @@ namespace jl
     void TcpConnection::Cancel(std::error_code &ec)
     {
         socket_.cancel(ec);
-        //LOG_DEBUG << std::to_string(socket_.available());
+        // LOG_DEBUG << std::to_string(socket_.available());
     }
 
     bool TcpConnection::IsConnected()
