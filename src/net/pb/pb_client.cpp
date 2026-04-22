@@ -45,19 +45,17 @@ namespace jl
 
     Response *PbClient::ReadResponse()
     {
-        // std::string resp_len_str = connection_->SyncReadLen(kTotalLenSize);
         std::error_code ec;
         std::string resp_str = connection_->SyncReadLen(kTotalLenSize, timeout_, ec);
         LOG_DEBUG << "Read response len finish";
-        if (ec == asio::error::connection_aborted) // 远程连接断开后会触发
+        if (ec) // 远程连接断开后会触发
         {
             LOG_DEBUG << "ec: " << ec.message();
-            assert(false);
+            return nullptr;
         }
         std::size_t resp_len = 0;
         memcpy(&resp_len, resp_str.c_str(), kTotalLenSize);
         resp_str = connection_->SyncReadLen(resp_len - kTotalLenSize, timeout_, ec);
-        // LOG_DEBUG << std::to_string(resp_str.size()) << "    " << std::to_string(resp_len - kTotalLenSize + 2);
         if (ec)
         {
             LOG_DEBUG << ec.message();
@@ -76,8 +74,6 @@ namespace jl
     {
         if (!ec)
         {
-            LOG_DEBUG << __FUNCTION__ << ":" << ec.message();
-            // connection_->Close();
             connection_->Cancel();
         }
         else
