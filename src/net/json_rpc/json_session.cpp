@@ -41,11 +41,11 @@ void JsonSession::WriteResponse(const Response* response)
 void JsonSession::SetResponseCallback(const JsonResponseCallback& callback)
 {
     response_callback_ = callback;
-    std::weak_ptr<JsonSession> weak = shared_from_this();
+    std::weak_ptr<ISession> weak = shared_from_this();
     connection_->SetWriteCallback(
         [weak](const ConnectionPtr& conn, std::size_t bytes_transferred, const std::error_code& ec)
         {
-            JsonSessionPtr self = weak.lock();
+            SessionPtr self = weak.lock();
             if (!self)
                 return;
             self->OnResponse(self, bytes_transferred, ec);
@@ -55,14 +55,14 @@ void JsonSession::SetResponseCallback(const JsonResponseCallback& callback)
 void JsonSession::SetCloseCallback(const JsonSessionCloseCallback& callback)
 {
     close_callback_ = callback;
-    std::weak_ptr<JsonSession> weak = shared_from_this();
+    std::weak_ptr<ISession> weak = shared_from_this();
     connection_->SetCloseCallback(
         [weak](const ConnectionPtr& conn, const std::error_code& ec)
         {
-            JsonSessionPtr self = weak.lock();
-            if (!self || !self->close_callback_)
+            SessionPtr self = weak.lock();
+            if (!self)
                 return;
-            self->close_callback_(self, ec);
+            self->OnSessionCloseCallback(self, ec);
         });
 }
 
@@ -89,11 +89,11 @@ void JsonSession::ReadHttpHeader()
     state_ = JsonSessionState::kReadHttpHeader;
     http_req_data_.clear();
 
-    std::weak_ptr<JsonSession> weak = shared_from_this();
+    std::weak_ptr<ISession> weak = shared_from_this();
     connection_->SetReadCallback(
         [weak](const ConnectionPtr& conn, std::string_view read_str, const std::error_code& ec)
         {
-            JsonSessionPtr self = weak.lock();
+            SessionPtr self = weak.lock();
             if (!self)
                 return;
             self->OnRead(self, read_str, ec);
@@ -107,11 +107,11 @@ void JsonSession::ReadHttpHeader()
 void JsonSession::ReadHttpBody(size_t body_size)
 {
     state_ = JsonSessionState::kReadHttpBody;
-    std::weak_ptr<JsonSession> weak = shared_from_this();
+    std::weak_ptr<ISession> weak = shared_from_this();
     connection_->SetReadCallback(
         [weak](const ConnectionPtr& conn, std::string_view read_str, const std::error_code& ec)
         {
-            JsonSessionPtr self = weak.lock();
+            SessionPtr self = weak.lock();
             if (!self)
                 return;
             self->OnRead(self, read_str, ec);
@@ -133,7 +133,7 @@ void JsonSession::ProcessRequest(const std::string& body)
         delete req_ptr;
 }
 
-void JsonSession::OnRead(const JsonSessionPtr& session, std::string_view read_str, const std::error_code& ec)
+void JsonSession::OnRead(const SessionPtr& session, std::string_view read_str, const std::error_code& ec)
 {
     LOG_DEBUG << "JsonSession::OnRead called, state=" + std::to_string(static_cast<int>(session->state_.load())) + ", data_size=" + std::to_string(read_str.size());
     if (ec)
@@ -201,7 +201,7 @@ void JsonSession::OnRead(const JsonSessionPtr& session, std::string_view read_st
     }
 }
 
-void JsonSession::OnResponse(const JsonSessionPtr& session, std::size_t bytes_transferred, const std::error_code& ec)
+void JsonSession::OnResponse(const SessionPtr& session, std::size_t bytes_transferred, const std::error_code& ec)
 {
     if (response_callback_)
         response_callback_(session, bytes_transferred, ec);

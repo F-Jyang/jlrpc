@@ -19,21 +19,21 @@ namespace jl
     class PbClient : public std::enable_shared_from_this<PbClient>
     {
     public:
-        PbClient(asio::io_context &ioct, std::size_t max_buffer_size = kDefaultBufferSize);
+        PbClient(asio::io_context &ioct, std::size_t max_buffer_size = kDefaultBufferSize, std::size_t timeout = kDefaultClientTimeout);
 
         /// @brief 连接到服务端
-        /// @param ip 
-        /// @param port 
-        /// @return 
+        /// @param ip
+        /// @param port
+        /// @return
         bool Connect(const std::string &ip, unsigned short port);
 
         /// @brief 判断是否处于连接状态
-        /// @return 
+        /// @return
         bool IsConnected();
 
         /// @brief 发送request
-        /// @param req_ptr 
-        /// @return  
+        /// @param req_ptr
+        /// @return
         bool SendRequest(const Request *req_ptr);
 
         /// @brief 发送心跳
@@ -46,11 +46,10 @@ namespace jl
         void Close();
 
         /// @brief 设置io操作的超时时间
-        /// @param secs 
+        /// @param secs
         void SetTimeout(int secs);
 
     private:
-
         void OnTimeout(const std::error_code &ec);
 
     private:

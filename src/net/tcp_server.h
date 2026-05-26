@@ -13,7 +13,7 @@
 
 namespace jl
 {
-  
+
     class Server : public std::enable_shared_from_this<Server>
     {
     public:
@@ -29,6 +29,8 @@ namespace jl
         /// @brief 设置连接建立回调函数
         /// @param callback 连接建立回调函数
         void SetConnEstablishCallback(const ConnEstablishCallback &callback);
+
+        asio::io_context &GetIOContext() const { return main_ioct_; }
 
         ~Server();
 

@@ -83,7 +83,7 @@ namespace jl
         else
         {
             // 禁止同一时刻注册两个async_read事件
-            // assert(false);
+            assert(false);
         }
     }
 

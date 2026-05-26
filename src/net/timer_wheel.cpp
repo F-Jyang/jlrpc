@@ -1,18 +1,54 @@
 #include "timer_wheel.h"
 #include <utils/easy_log.hpp>
+#include <thread>
 
 namespace jl
 {
+	thread_local std::shared_ptr<SessionTimerManager> kTimerManager{nullptr};
 
-	thread_local std::shared_ptr<TimerWheel> timer_wheel{nullptr};
-
-	std::shared_ptr<TimerWheel> GetTimerWheel(asio::io_context &ioct)
+	bool InitLocalTimerManager(asio::io_context &ioct)
 	{
-		if (!timer_wheel)
+		if (!kTimerManager)
 		{
-			timer_wheel = std::make_shared<TimerWheel>(ioct);
+			kTimerManager = std::make_shared<SessionTimerManager>(ioct);
 		}
-		return timer_wheel;
+		return kTimerManager != nullptr;
+	}
+
+	// void LocalAddTimerEvent(const SessionPtr &session_ptr, const TimerEventCallback &callback)
+	// {
+	// 	TimerEventPtr event_ptr = std::make_shared<TimerEvent>(
+	// 		session_ptr,
+	// 		[session_weak = session_ptr->weak_from_this()]()
+	// 		{
+	// 			LOG_DEBUG << "OnSession timeout event";
+	// 			SessionPtr session_ptr = session_weak.lock();
+	// 			if (session_ptr)
+	// 			{
+	// 				LOG_DEBUG << "Session timeout close";
+	// 				session_ptr->Close();
+	// 				// 运行在同个线程的timerwheel中
+	// 				// 如果 TimerWheel 运行与main_ioct中，需要将Close操作post到session_ptr所在线程
+	// 				// 如果timerwheel使用的是GetLocalTimerWheel，运行在与session_ptr的同个线程，则不需要post
+	// 				// asio::post(
+	// 				//     session_ptr->GetIoExecutor(),
+	// 				//     [session_ptr]()
+	// 				//     {
+	// 				//         session_ptr->Close();
+	// 				//     });
+	// 			}
+	// 		});
+	// 	// timer_wheel_->AddTimerEvent(event_ptr);
+	// 	// session_ptr->GetIoExecutor(),
+	// 	GetLocalTimerWheel()->AddTimerEvent(event_ptr);
+	// 	TimerEventWeak event_weak(event_ptr);
+	// 	session_ptr->SetContext(TimerEventWeak(event_ptr));
+	// }
+
+	std::shared_ptr<SessionTimerManager> GetLocalTimerManager()
+	{
+		assert(kTimerManager);
+		return kTimerManager;
 	}
 
 	TimerWheel::TimerWheel(asio::io_context &ioct)
@@ -83,13 +119,13 @@ namespace jl
 		std::size_t wheels_size = wheels_.size();
 		std::vector<Slot> del_slots(wheels_size);
 		{
-			std::lock_guard<std::mutex> lock(mutex_);
-			++wheel_idx_[0]; // 前进一个slot
-			del_slots[0].swap(wheels_[0][wheel_idx_[0]  % wheels_[0].size()]);
+			std::lock_guard<std::mutex> lock(mutex_); // 如果将timerwheel设置为线程局部变量，则可以不加锁
+			++wheel_idx_[0];						  // 前进一个slot
+			del_slots[0].swap(wheels_[0][wheel_idx_[0] % wheels_[0].size()]);
 			for (int i = 1; i < wheels_size && wheel_idx_[i - 1] == wheels_[i - 1].size(); ++i)
 			{
 				wheel_idx_[i - 1] = 0; // 上一个时间轮回到第一个slot
-				++wheel_idx_[i]; // 拿出当前时间轮的slot，需要注意索引不能越界
+				++wheel_idx_[i];	   // 拿出当前时间轮的slot，需要注意索引不能越界
 				del_slots[i].swap(wheels_[i][wheel_idx_[i] % wheels_[i].size()]);
 				// 将当前时间轮即将超时的TimerEvent下放到上一个时间轮中
 				for (auto it = del_slots[i].begin(); it != del_slots[i].end(); ++it)
@@ -112,5 +148,33 @@ namespace jl
 	TimerWheel::~TimerWheel()
 	{
 		LOG_DEBUG << "~TimerWheel";
+	}
+
+	SessionTimerManager::SessionTimerManager(asio::io_context &ioct)
+		: timer_wheel_(ioct)
+	{
+		// 初始化并启动本线程的timer_wheel_
+		timer_wheel_.Start();
+	}
+
+	void SessionTimerManager::PostTimerEvent(const SessionPtr &session_ptr, TimerEventCallback callback)
+	{
+		// 将 TimerEvent Post 到 session_ptr 所在 io_context
+		asio::post(
+			session_ptr->GetIoExecutor(),
+			[=]()
+			{
+				LOG_THREAD_ID("PostTimerEvent");
+				TimerEventPtr event_ptr = std::make_shared<TimerEvent>(session_ptr, callback);
+				GetLocalTimerManager()->timer_wheel_.AddTimerEvent(event_ptr);
+				TimerEventWeak event_weak(event_ptr);
+				session_ptr->SetContext(TimerEventWeak(event_weak));
+			});
+	}
+
+	void SessionTimerManager::AddTimerEvent(const TimerEventPtr &timer_event_ptr)
+	{
+		LOG_THREAD_ID("AddTimerEvent");
+		timer_wheel_.AddTimerEvent(timer_event_ptr);
 	}
 }

@@ -4,6 +4,11 @@
 #include <sstream>
 #include <iostream>
 
+#define LOG_THREAD_ID(msg)               \
+    std::stringstream ss;             \
+    ss << std::this_thread::get_id(); \
+    LOG_DEBUG << "Thread id: " << ss.str() << " :" << msg;
+
 #define LOG_DEBUG jl::LogStream(jl::LogLevel::kDebug, __FUNCTION__)
 
 namespace jl
@@ -19,8 +24,7 @@ namespace jl
     class Logger
     {
     public:
-        Logger() : 
-            buffer_(4096)
+        Logger() : buffer_(4096)
         {
         }
 

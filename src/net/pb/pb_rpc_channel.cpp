@@ -34,7 +34,7 @@ namespace jl
             Response* resp_ptr = nullptr;
             try
             {
-                client_->SetTimeout(32);
+                // client_->SetTimeout(32);
                 bool res = client_->SendRequest(req_ptr);
                 if (!res)
                 {
@@ -46,7 +46,7 @@ namespace jl
                     throw std::system_error(std::make_error_code(std::errc::timed_out), "read response");
                 }
                 std::string_view result_view = resp_ptr->GetResult();
-                if (!response->ParseFromString(absl::string_view(result_view.data(),result_view.size())))
+                if (!response->ParseFromString(std::string(result_view.data(),result_view.size())))
                 {
                     controller->SetFailed("Parse response Error");
                 }

@@ -6,7 +6,7 @@
 #include <query_service_impl.h>
 #include <thread>
 
-#define CONNECTION_COUNT 1
+#define CONNECTION_COUNT 2
 
 int main()
 {

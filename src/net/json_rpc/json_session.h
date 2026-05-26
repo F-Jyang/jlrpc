@@ -14,61 +14,64 @@
 namespace jl
 {
 
-class JsonSession;
-using JsonSessionPtr = std::shared_ptr<JsonSession>;
+    class JsonSession;
+    using JsonSessionPtr = std::shared_ptr<JsonSession>;
 
-using JsonRequestCallback = std::function<void(const JsonSessionPtr&, const Request*, const std::error_code& ec)>;
-using JsonResponseCallback = std::function<void(const JsonSessionPtr&, std::size_t bytes_transferred, const std::error_code& ec)>;
-using JsonSessionCloseCallback = std::function<void(const JsonSessionPtr&, const std::error_code& ec)>;
+    using JsonRequestCallback = std::function<void(const JsonSessionPtr &, const Request *, const std::error_code &ec)>;
+    using JsonResponseCallback = std::function<void(const JsonSessionPtr &, std::size_t bytes_transferred, const std::error_code &ec)>;
+    using JsonSessionCloseCallback = std::function<void(const JsonSessionPtr &, const std::error_code &ec)>;
 
-enum class JsonSessionState
-{
-    kReadHttpHeader = 0,
-    kReadHttpBody,
-    kProcessRequest,
-};
+    enum class JsonSessionState
+    {
+        kReadHttpHeader = 0,
+        kReadHttpBody,
+        kProcessRequest,
+    };
 
-class JsonSession : public std::enable_shared_from_this<JsonSession>, public ISession
-{
-public:
-    JsonSession(const ConnectionPtr& conn);
+    class JsonSession : public ISession
+    {
+    public:
+        JsonSession(const ConnectionPtr &conn);
 
-    void Start();
+        void Start();
 
-    std::size_t GetId() const;
+        std::size_t GetId() const;
 
-    void WriteResponse(const Response* response);
+        void WriteResponse(const Response *response);
 
-    void SetRequestCallback(const JsonRequestCallback& callback);
+        void SetRequestCallback(const JsonRequestCallback &callback);
 
-    void SetResponseCallback(const JsonResponseCallback& callback);
+        void SetResponseCallback(const JsonResponseCallback &callback);
 
-    void SetCloseCallback(const JsonSessionCloseCallback& callback);
+        void SetCloseCallback(const JsonSessionCloseCallback &callback);
 
-    const asio::any_io_executor& GetIoExecutor() override;
+        const asio::any_io_executor &GetIoExecutor() override;
 
-    void Close();
+        void Close();
 
-    ~JsonSession();
+        ~JsonSession();
 
-private:
-    void OnRead(const JsonSessionPtr& session, std::string_view read_str, const std::error_code& ec);
-    void OnResponse(const JsonSessionPtr& session, std::size_t bytes_transferred, const std::error_code& ec);
+    private:
+        void OnRequest(const SessionPtr &session, std::string_view req_str, const std::error_code &ec) override;
 
-    void ReadHttpHeader();
-    void ReadHttpBody(size_t body_size);
-    void ProcessRequest(const std::string& body);
+        void OnResponse(const SessionPtr &session, std::size_t bytes_transferred, const std::error_code &ec) override;
 
-private:
-    std::size_t session_id_;
-    ConnectionPtr connection_;
-    std::atomic<JsonSessionState> state_;
-    JsonRequestCallback request_callback_;
-    JsonResponseCallback response_callback_;
-    JsonSessionCloseCallback close_callback_;
-    std::string http_req_data_;
+        // void OnResponse(const JsonSessionPtr& session, std::size_t bytes_transferred, const std::error_code& ec) override;
 
-    std::chrono::steady_clock::time_point start_;
-};
+        void ReadHttpHeader();
+        void ReadHttpBody(size_t body_size);
+        void ProcessRequest(const std::string &body);
+
+    private:
+        std::size_t session_id_;
+        ConnectionPtr connection_;
+        std::atomic<JsonSessionState> state_;
+        JsonRequestCallback request_callback_;
+        JsonResponseCallbaReck response_callback_;
+        JsonSessionCloseCallback close_callback_;
+        std::string http_req_data_;
+
+        std::chrono::steady_clock::time_point start_;
+    };
 
 } // namespace jl

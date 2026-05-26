@@ -35,17 +35,17 @@ namespace jl
         return session_id_;
     }
 
-    void PbSession::SetRequestCallback(const PbRequestCallback &callback)
+    void PbSession::SetRequestCallback(const RequestCallback &callback)
     {
         request_callback_ = callback;
-        std::weak_ptr<PbSession> weak = shared_from_this();
+        std::weak_ptr<ISession> weak = shared_from_this();
         connection_->SetReadCallback(
-            [weak](const ConnectionPtr &conn, std::string_view read_str, const std::error_code &ec)
+            [weak,this](const ConnectionPtr &conn, std::string_view read_str, const std::error_code &ec)
             {
-                PbSessionPtr self = weak.lock();
+                SessionPtr self = weak.lock();
                 if (!self)
                     return;
-                self->OnRequest(self, read_str, ec);
+                this->OnRequest(self, read_str, ec);
                 // if (self->state_ == PbSessionState::kReadTotalLen)
                 // {
                 //     if (read_str.size() != kTotalLenSize)
@@ -83,32 +83,32 @@ namespace jl
         connection_->AsyncWrite(resp_str);
     }
 
-    void PbSession::SetResponseCallback(const PbResponseCallback &callback)
+    void PbSession::SetResponseCallback(const ResponseCallback &callback)
     {
         response_callback_ = callback;
-        std::weak_ptr<PbSession> weak = shared_from_this();
+        std::weak_ptr<ISession> weak = shared_from_this();
         connection_->SetWriteCallback(
-            [weak](const ConnectionPtr &conn, std::size_t bytes_transferred, const std::error_code &ec)
+            [weak,this](const ConnectionPtr &conn, std::size_t bytes_transferred, const std::error_code &ec)
             {
-                PbSessionPtr self = weak.lock();
+                SessionPtr self = weak.lock();
                 if (!self)
                     return;
-                self->OnResponse(self, bytes_transferred, ec);
+                this->OnResponse(self, bytes_transferred, ec);
                 // self->response_callback_(self, bytes_transferred, ec);
             });
     }
 
-    void PbSession::SetCloseCallback(const PbSessionCloseCallback &callback)
+    void PbSession::SetCloseCallback(const SessionCloseCallback &callback)
     {
         close_callback_ = callback;
-        std::weak_ptr<PbSession> weak = shared_from_this();
+        std::weak_ptr<ISession> weak = shared_from_this();
         connection_->SetCloseCallback(
             [weak](const ConnectionPtr &conn, const std::error_code &ec)
             {
-                PbSessionPtr self = weak.lock();
-                if (!self || !self->close_callback_)
+                SessionPtr self = weak.lock();
+                if (!self)
                     return;
-                self->close_callback_(self, ec);
+                self->OnSessionCloseCallback(self, ec);
             });
     }
 
@@ -129,16 +129,16 @@ namespace jl
         LOG_DEBUG << "Session live: " << std::to_string(live_sec);
     }
 
-    void PbSession::OnRequest(const PbSessionPtr &session, std::string_view req_str, const std::error_code &ec)
+    void PbSession::OnRequest(const SessionPtr &session, std::string_view req_str, const std::error_code &ec)
     {
         if (ec)
         {
             // log error
             LOG_DEBUG << __FUNCTION__ << ": " << ec.message();
-            session->request_callback_(session, nullptr, ec);
+            session->OnRequestCallback(session, nullptr, ec);
             return;
         }
-        if (session->state_ == PbSessionState::kReadTotalLen)
+        if (state_ == PbSessionState::kReadTotalLen)
         {
             if (req_str.size() != kTotalLenSize)
             {
@@ -149,14 +149,14 @@ namespace jl
             }
             std::size_t req_len = 0;
             memcpy(&req_len, req_str.data(), kTotalLenSize);
-            session->connection_->AsyncReadLen(req_len - kTotalLenSize);
-            session->state_ = PbSessionState::kReadRequest;
+            connection_->AsyncReadLen(req_len - kTotalLenSize);
+            state_ = PbSessionState::kReadRequest;
         }
-        else if (session->state_ == PbSessionState::kReadRequest)
+        else if (state_ == PbSessionState::kReadRequest)
         {
             Request *req_ptr = GetPbCoder().DecodeRequest(req_str);
-            session->request_callback_(session, req_ptr, ec);
-            session->state_ = PbSessionState::kReadTotalLen;
+            session->OnRequestCallback(session, req_ptr, ec);
+            state_ = PbSessionState::kReadTotalLen;
             delete req_ptr;
         }
         else
@@ -168,8 +168,8 @@ namespace jl
         }
     }
 
-    void PbSession::OnResponse(const PbSessionPtr &session, std::size_t bytes_transferred, const std::error_code &ec)
+    void PbSession::OnResponse(const SessionPtr &session, std::size_t bytes_transferred, const std::error_code &ec)
     {
-        session->response_callback_(session, bytes_transferred, ec);
+        session->OnResponseCallback(session, bytes_transferred, ec);
     }
 }

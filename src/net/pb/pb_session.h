@@ -23,7 +23,7 @@ namespace jl
         kReadRequest,
     };
 
-    class PbSession : public std::enable_shared_from_this<PbSession>, public ISession
+    class PbSession : public ISession
     {
     public:
 		// PbSession(asio::io_context& ioct, net::tcp::socket&& socket);
@@ -36,11 +36,11 @@ namespace jl
 
         void WriteResponse(const Response* response);
         
-        void SetRequestCallback(const PbRequestCallback &callback);
+        void SetRequestCallback(const RequestCallback &callback);
 
-        void SetResponseCallback(const PbResponseCallback &callback);
+        void SetResponseCallback(const ResponseCallback &callback);
 
-        void SetCloseCallback(const PbSessionCloseCallback& callback);
+        void SetCloseCallback(const SessionCloseCallback& callback);
 
         const asio::any_io_executor& GetIoExecutor() override;
 
@@ -51,17 +51,14 @@ namespace jl
         
     private:
 
-        void OnRequest(const PbSessionPtr& session, std::string_view req_str, const std::error_code& ec);
+        void OnRequest(const SessionPtr& session, std::string_view req_str, const std::error_code& ec);
 
-        void OnResponse(const PbSessionPtr& session, std::size_t bytes_transferred, const std::error_code& ec);
+        void OnResponse(const SessionPtr& session, std::size_t bytes_transferred, const std::error_code& ec);
 
     private:
         std::size_t session_id_;
         ConnectionPtr connection_;
         std::atomic<PbSessionState> state_;
-        PbRequestCallback request_callback_;
-        PbResponseCallback response_callback_;
-        PbSessionCloseCallback close_callback_;
 
         // for test
         std::chrono::steady_clock::time_point start_;

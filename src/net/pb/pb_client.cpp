@@ -2,18 +2,18 @@
 
 namespace jl
 {
-    jl::PbClient::PbClient(asio::io_context &ioct, std::size_t max_buffer_size)
+
+    jl::PbClient::PbClient(asio::io_context &ioct, std::size_t max_buffer_size, std::size_t timeout )
         : ioct_(ioct),
-          timeout_(30)
+          timeout_(timeout)
     {
         connection_ = std::make_shared<TcpConnection>(ioct, max_buffer_size);
         connection_->SetTimeoutCallback(
-            [&](const ConnectionPtr& conn, const std::error_code& ec)
+            [&](const ConnectionPtr &conn, const std::error_code &ec)
             {
                 LOG_DEBUG << "client timeout";
                 conn->Cancel();
-            }
-        );
+            });
     }
 
     bool PbClient::Connect(const std::string &ip, unsigned short port)

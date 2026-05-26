@@ -3,10 +3,17 @@
 
 namespace jl
 {
+    static std::size_t kDefaultIOContextPoolSize = std::thread::hardware_concurrency();
+
+    void SetIoContextPoolSize(std::size_t size)
+    {
+        kDefaultIOContextPoolSize = size;
+    }
+
     IoContextPool::IoContextPool()
         : next_ioct_idx_(0)
     {
-        int32_t size = std::thread::hardware_concurrency(); // TODO使用config替代
+        int32_t size = kDefaultIOContextPoolSize; 
         if (size <= 0)
         {
             size = 1;
@@ -42,6 +49,7 @@ namespace jl
                 [this, i]()
                 {
                     IoContextPtr ioct = ioct_pool_[i];
+                    InitLocalTimerManager(*ioct);
                     ioct_map_.emplace(std::pair{std::this_thread::get_id(), ioct});
                     ioct_pool_[i]->run();
                 });

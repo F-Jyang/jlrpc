@@ -4,6 +4,8 @@
 
 namespace jl
 {
+    inline void SetIoContextPoolSize(std::size_t size);
+
     class IoContextPool
     {
         using IoContextPtr = std::shared_ptr<asio::io_context>;

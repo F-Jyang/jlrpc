@@ -1,17 +1,13 @@
-
-
 find_package(protobuf CONFIG QUIET)
 if(NOT protobuf_FOUND)
     find_package(Protobuf REQUIRED)
 endif()
 aux_source_directory("./net" NET_SRC)
 aux_source_directory("./net/pb" NET_SRC)
-aux_source_directory("./net/json_rpc" NET_SRC)
+# aux_source_directory("./net/json_rpc" NET_SRC)
 aux_source_directory("./rpc" RPC_SRC)
 
 list(APPEND SRCS ${NET_SRC} ${RPC_SRC})
-
-message(STATUS ${SRCS})
 
 add_library(jlrpc_static STATIC
     ${SRCS}
