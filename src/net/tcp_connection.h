@@ -5,6 +5,11 @@
 #include <atomic>
 #include <optional>
 #include <queue>
+#include <utils/easy_log.hpp>
+
+#ifndef NDEBUG
+#include <thread>
+#endif
 
 namespace jl
 {
@@ -21,7 +26,7 @@ namespace jl
     using ReadCallback = std::function<void(const ConnectionPtr &, std::string_view, const std::error_code &)>;
     using WriteCallback = std::function<void(const ConnectionPtr &, std::size_t bytes_transferred, const std::error_code &)>;
     using CloseCallback = std::function<void(const ConnectionPtr &, const std::error_code &)>;
-    using TimeoutCallback = std::function<void(const ConnectionPtr &, const std::error_code &)>;
+    // using TimeoutCallback = std::function<void(const ConnectionPtr &, const std::error_code &)>;
 
     enum class ConnectionState
     {
@@ -132,10 +137,10 @@ namespace jl
             close_callback_ = callback;
         }
 
-        void SetTimeoutCallback(const TimeoutCallback &callback)
-        {
-            timeout_callback_ = callback;
-        }
+        // void SetTimeoutCallback(const TimeoutCallback &callback)
+        // {
+        //     timeout_callback_ = callback;
+        // }
 
         ~TcpConnection();
 
@@ -146,7 +151,7 @@ namespace jl
 
         void OnWrite(const std::error_code &ec, size_t bytes_transferred);
 
-        void OnTimeout(const std::error_code &ec);
+        // void OnTimeout(const std::error_code &ec);
 
         template <typename Rep, typename Period>
         void Wait(const std::chrono::duration<Rep, Period> &timeout)
@@ -155,10 +160,20 @@ namespace jl
             ioct_.run_for(timeout);
             if (!ioct_.stopped())
             {
-                this->OnTimeout(std::make_error_code(std::errc::timed_out));
+                socket_.cancel(); // operation abort!
                 // run the io_context again until the operation completes. 处理掉超时后被中断的任务，任务的异步回调中ec应该是operation_abort
                 ioct_.run();
             }
+        }
+        void AssertInThread()
+        {
+#ifndef NDEBUG
+            if (!is_thread_id_init_.exchange(true))
+            {
+                thread_id_ = std::this_thread::get_id();
+            }
+            assert(thread_id_ == std::this_thread::get_id());
+#endif
         }
 
     private:
@@ -171,7 +186,11 @@ namespace jl
         ReadCallback read_callback_;
         WriteCallback write_callback_;
         CloseCallback close_callback_;
-        TimeoutCallback timeout_callback_;
+#ifndef NDEBUG
+        std::atomic<bool> is_thread_id_init_{false};
+        std::thread::id thread_id_;
+#endif
+        // TimeoutCallback timeout_callback_; // 超时由时间轮实现
     };
 
 }

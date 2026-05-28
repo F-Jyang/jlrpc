@@ -27,7 +27,12 @@ namespace jl
 
     void PbSession::Start()
     {
-        connection_->AsyncReadLen(kTotalLenSize);
+        asio::post(
+            connection_->GetIoExecutor(),
+            [this]()
+            {
+                connection_->AsyncReadLen(kTotalLenSize);
+            });
     }
 
     std::size_t PbSession::GetId() const

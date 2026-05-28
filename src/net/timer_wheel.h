@@ -30,45 +30,12 @@ namespace jl
 
     std::shared_ptr<SessionTimerManager> GetLocalTimerManager();
 
-    // void LocalAddTimerEvent(const SessionPtr &session_ptr, const TimerEventCallback &callback);
-
-    /*
-    struct TimePos
-    {
-
-        TimePos(uint64_t s) : sec(s) {}
-
-        bool operator<(const TimePos &pos)
-        {
-            return sec < pos.sec;
-        }
-
-        bool operator>(const TimePos &pos)
-        {
-            return sec > pos.sec;
-        }
-
-        bool operator==(const TimePos &pos)
-        {
-            return sec == pos.sec;
-        }
-
-        TimePos &operator++()
-        {
-            ++sec;
-            return *this;
-        }
-
-        int64_t sec;
-    };
-    */
-
     struct TimerEvent
     {
         TimerEvent(const SessionPtr &session_ptr, const TimerEventCallback &cb)
             : callback(cb),
-              arrive_time(0)
-        // session(session_ptr)
+              arrive_time(0),
+              session(session_ptr)
         {
             int timeout = kMaxTimeoutSec;
             if (session_ptr->GetTimeout() < kMaxTimeoutSec)
@@ -92,7 +59,7 @@ namespace jl
         }
 
         uint64_t arrive_time; // 超时时间
-        // SessionWeak session;
+        SessionWeak session;
         TimerEventCallback callback;
     };
 
@@ -143,15 +110,16 @@ namespace jl
     {
     public:
         SessionTimerManager(asio::io_context &ioct);
-        
+
         /// @brief 向session_ptr所在线程的timerManager添加TimerEvent，同时设置session_ptr的Context为TimerEventWeak
-        /// @param session_ptr 
-        /// @param callback 
+        /// @param session_ptr
+        /// @param callback
         static void PostTimerEvent(const SessionPtr &session_ptr, TimerEventCallback callback);
-    
+
         /// @brief 向当前线程的timerManager添加TimerEvent
-        /// @param timer_event_ptr 
-        void AddTimerEvent(const TimerEventPtr& timer_event_ptr);
+        /// @param timer_event_ptr
+        void AddTimerEvent(const TimerEventPtr &timer_event_ptr);
+
     private:
         TimerWheel timer_wheel_;
     };

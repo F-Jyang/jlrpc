@@ -8,12 +8,12 @@ namespace jl
           timeout_(timeout)
     {
         connection_ = std::make_shared<TcpConnection>(ioct, max_buffer_size);
-        connection_->SetTimeoutCallback(
-            [&](const ConnectionPtr &conn, const std::error_code &ec)
-            {
-                LOG_DEBUG << "client timeout";
-                conn->Cancel();
-            });
+        // connection_->SetTimeoutCallback(
+        //     [&](const ConnectionPtr &conn, const std::error_code &ec)
+        //     {
+        //         LOG_DEBUG << "client timeout";
+        //         conn->Cancel();
+        //     });
     }
 
     bool PbClient::Connect(const std::string &ip, unsigned short port)
