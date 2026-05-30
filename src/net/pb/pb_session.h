@@ -28,7 +28,7 @@ namespace jl
     public:
 		// PbSession(asio::io_context& ioct, net::tcp::socket&& socket);
 		
-        PbSession(const ConnectionPtr& conn);
+        PbSession(const AsyncConnPtr& conn);
 
         void Start();
 
@@ -57,7 +57,7 @@ namespace jl
 
     private:
         std::size_t session_id_;
-        ConnectionPtr connection_;
+        AsyncConnPtr connection_;
         std::atomic<PbSessionState> state_;
 
         // for test

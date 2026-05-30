@@ -15,14 +15,14 @@ namespace jl
     //     // id_ = std::hash<std::string>{}(oss.str());
     // }
 
-    PbSession::PbSession(const ConnectionPtr &conn)
+    PbSession::PbSession(const AsyncConnPtr &conn)
         : connection_(conn),
           state_(PbSessionState::kReadTotalLen)
     {
         start_ = std::chrono::steady_clock::now();
         // LOG_DEBUG << "New tcpConnection";
         ConnectionInfo info = connection_->GetConnectionInfo();
-        session_id_ = info.hash();
+        session_id_ = info.HashV4();
     }
 
     void PbSession::Start()
@@ -45,7 +45,7 @@ namespace jl
         request_callback_ = callback;
         std::weak_ptr<ISession> weak = shared_from_this();
         connection_->SetReadCallback(
-            [weak,this](const ConnectionPtr &conn, std::string_view read_str, const std::error_code &ec)
+            [weak,this](const AsyncConnPtr &conn, std::string_view read_str, const std::error_code &ec)
             {
                 SessionPtr self = weak.lock();
                 if (!self)
@@ -93,7 +93,7 @@ namespace jl
         response_callback_ = callback;
         std::weak_ptr<ISession> weak = shared_from_this();
         connection_->SetWriteCallback(
-            [weak,this](const ConnectionPtr &conn, std::size_t bytes_transferred, const std::error_code &ec)
+            [weak,this](const AsyncConnPtr &conn, std::size_t bytes_transferred, const std::error_code &ec)
             {
                 SessionPtr self = weak.lock();
                 if (!self)
@@ -108,7 +108,7 @@ namespace jl
         close_callback_ = callback;
         std::weak_ptr<ISession> weak = shared_from_this();
         connection_->SetCloseCallback(
-            [weak](const ConnectionPtr &conn, const std::error_code &ec)
+            [weak](const AsyncConnPtr &conn, const std::error_code &ec)
             {
                 SessionPtr self = weak.lock();
                 if (!self)

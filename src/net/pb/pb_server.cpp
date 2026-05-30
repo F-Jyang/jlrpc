@@ -12,7 +12,7 @@ namespace jl
     //   timer_wheel_(std::make_unique<TimerWheel>(main_ioct))
     {
         tcp_server_->SetConnEstablishCallback(
-            [&](const ConnectionPtr &conn)
+            [&](const AsyncConnPtr &conn)
             {
                 PbSessionPtr session_ptr = std::make_shared<PbSession>(conn);
                 session_ptr->SetTimeout(kDefaultSessionTimeout);

@@ -43,7 +43,7 @@ void jl::Acceptor::OnAccept(asio::io_context &ioct, net::tcp::socket &&socket, c
     {
         if (conn_establish_callback_)
         {
-            ConnectionPtr conn = std::make_shared<TcpConnection>(ioct,std::move(socket),kDefaultBufferSize);
+            AsyncConnPtr conn = std::make_shared<AsyncConnection>(ioct,std::move(socket),kDefaultBufferSize);
             conn_establish_callback_(conn);
         }
         else

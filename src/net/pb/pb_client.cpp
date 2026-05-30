@@ -7,7 +7,7 @@ namespace jl
         : ioct_(ioct),
           timeout_(timeout)
     {
-        connection_ = std::make_shared<TcpConnection>(ioct, max_buffer_size);
+        connection_ = std::make_shared<SyncConnection>(ioct, max_buffer_size);
         // connection_->SetTimeoutCallback(
         //     [&](const ConnectionPtr &conn, const std::error_code &ec)
         //     {

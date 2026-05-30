@@ -15,7 +15,7 @@ namespace net = asio::ip;
 
 namespace jl
 {
-    using ConnEstablishCallback = std::function<void(const ConnectionPtr&)>;
+    using ConnEstablishCallback = std::function<void(const AsyncConnPtr&)>;
 
     class Acceptor : public std::enable_shared_from_this<Acceptor>
     {

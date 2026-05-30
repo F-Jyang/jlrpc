@@ -54,7 +54,7 @@ namespace jl
 
     private:
         asio::io_context &ioct_;
-        ConnectionPtr connection_;
+        SyncConnPtr connection_;
         asio::streambuf read_buffer_;
         int timeout_;
     };
